@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyhako-cli"
+version = "0.1.0"
+description = "CLI for PyHako"
+requires-python = ">=3.9"
+dependencies = [
+    "tqdm>=4.66.0",
+    "aiofiles>=23.0.0",
+    "pyhako>=0.1.0rc1",
+    "structlog>=24.1.0",
+    "keyrings-alt>=5.0.2",
+]
+
+[tool.uv.sources]
+pyhako = { path = "../PyHako", editable = true }
+
+[project.scripts]
+pyhako-cli = "pyhako_cli.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pyhako_cli"]
+
+[dependency-groups]
+dev = [
+    "browser-cookie3>=0.20.1",
+    "pyinstaller>=6.17.0",
+    "pytest>=8.3.5",
+    "pytest-asyncio>=1.2.0",
+    "pytest-cov>=7.0.0",
+    "syrupy>=4.9.1",
+    "time-machine>=2.19.0",
+]

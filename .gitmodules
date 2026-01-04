@@ -1,0 +1,4 @@
+[submodule "pymsg"]
+	path = pymsg
+	url = https://github.com/xebjhm/pymsg.git
+	branch = master
