@@ -1,0 +1,49 @@
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Tooling
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Distribution
+build/
+dist/
+*.egg-info/
+*.spec
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Application Data
+auth_data/
+output/
+config.json
+config_*.json
+sync_state.json
+
+# Environment Variables
+.env
+.env.*
+
+# Temporary / Debug
+debug_members.py
+*.log
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
