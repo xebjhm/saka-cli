@@ -6,8 +6,8 @@ _CURRENT_LANG = 'en'
 STRINGS = {
     'en': {
         "cleanup_title": "=== Cleanup Wizard ===",
-        "cleanup_warn": "This will remove:\n1. Local 'auth_data' directory (Login session)\n2. Configuration file (config.json)",
-        "cleanup_linux_chrome": "3. (Optional) Google Chrome if it was installed by this tool",
+        "cleanup_warn": "This will remove:\n1. Secure tokens (from system keyring)\n2. Browser session (auth_data directory)\n3. Configuration files (config_*.json)",
+        "cleanup_linux_chrome": "4. (Optional) Google Chrome if it was installed by this tool",
         "cleanup_confirm": "\nAre you sure you want to proceed? [y/N]: ",
         "cleanup_aborted": "Aborted.",
         "cleanup_removing": "\nRemoving local files...",
@@ -73,8 +73,8 @@ STRINGS = {
     },
     'ja': {
         "cleanup_title": "=== クリーンアップウィザード ===",
-        "cleanup_warn": "以下の項目が削除されます：\n1. ローカル 'auth_data' ディレクトリ (ログインセッション)\n2. 設定ファイル (config.json)",
-        "cleanup_linux_chrome": "3. (任意) Google Chrome (このツールでインストールされた場合)",
+        "cleanup_warn": "以下の項目が削除されます：\n1. セキュアトークン (システムキーリング)\n2. ブラウザセッション (auth_data ディレクトリ)\n3. 設定ファイル (config_*.json)",
+        "cleanup_linux_chrome": "4. (任意) Google Chrome (このツールでインストールされた場合)",
         "cleanup_confirm": "\n続行しますか？ [y/N]: ",
         "cleanup_aborted": "中止しました。",
         "cleanup_removing": "\nローカルファイルを削除しています...",
@@ -140,8 +140,8 @@ STRINGS = {
     },
     'zh-TW': {
         "cleanup_title": "=== 清除工具精靈 ===",
-        "cleanup_warn": "此操作將會移除：\n1. 本地 'auth_data' 資料夾 (登入工作階段)\n2. 設定檔 (config.json)",
-        "cleanup_linux_chrome": "3. (選用) Google Chrome (若是透過此工具安裝)",
+        "cleanup_warn": "此操作將會移除：\n1. 安全令牌 (系統鑰匙圈)\n2. 瀏覽器工作階段 (auth_data 目錄)\n3. 設定檔 (config_*.json)",
+        "cleanup_linux_chrome": "4. (選用) Google Chrome (若是透過此工具安裝)",
         "cleanup_confirm": "\n您確定要繼續嗎？ [y/N]: ",
         "cleanup_aborted": "已中止。",
         "cleanup_removing": "\n正在移除本地檔案...",
@@ -207,8 +207,8 @@ STRINGS = {
     },
     'zh-CN': {
         "cleanup_title": "=== 清理向导 ===",
-        "cleanup_warn": "此操作将删除：\n1. 本地 'auth_data' 目录 (登录会话)\n2. 配置文件 (config.json)",
-        "cleanup_linux_chrome": "3. (可选) Google Chrome (如果是通过此工具安装的)",
+        "cleanup_warn": "此操作将删除：\n1. 安全令牌 (系统密钥链)\n2. 浏览器会话 (auth_data 目录)\n3. 配置文件 (config_*.json)",
+        "cleanup_linux_chrome": "4. (可选) Google Chrome (如果是通过此工具安装的)",
         "cleanup_confirm": "\n您确定要继续吗？ [y/N]: ",
         "cleanup_aborted": "已中止。",
         "cleanup_removing": "\n正在删除本地文件...",
@@ -274,8 +274,8 @@ STRINGS = {
     },
     'yue': {
         "cleanup_title": "=== 清理精靈 ===",
-        "cleanup_warn": "這將會移除：\n1. 本機 'auth_data' 目錄 (登入 Session)\n2. 設定檔 (config.json)",
-        "cleanup_linux_chrome": "3. (可選) Google Chrome (如果係由呢個工具安裝嘅話)",
+        "cleanup_warn": "這將會移除：\n1. 安全令牌 (系統鑰匙圈)\n2. 瀏覽器 Session (auth_data 目錄)\n3. 設定檔 (config_*.json)",
+        "cleanup_linux_chrome": "4. (可選) Google Chrome (如果係由呢個工具安裝嘅話)",
         "cleanup_confirm": "\n你係咪確定要繼續？ [y/N]: ",
         "cleanup_aborted": "已中止。",
         "cleanup_removing": "\n移除緊本機檔案...",
