@@ -444,6 +444,7 @@ class HakoCLI:
         # Save Content (HTML)
         # We should rewrite image links to local if we download them
         content = entry.content
+        local_images = []
         
         img_dir = base_dir / "images"
         if entry.images:
@@ -463,12 +464,34 @@ class HakoCLI:
                             async with aiofiles.open(img_path, 'wb') as f:
                                 await f.write(data)
                             
+                            local_images.append(f"./images/{img_name}")
                             # Update content ref (basic replace)
-                            # This is simple string replace, might be risky if URL matches multiple things
-                            # Use BeautifulSoup for robustness if needed, but string replace usually ok for full URLs
                             content = content.replace(img_url, f"./images/{img_name}")
                 except Exception as e:
                     logger.warning(f"Failed to download image {img_url}: {e}")
+
+        # Generate JSON Metadata (Source of Truth)
+        try:
+             from bs4 import BeautifulSoup
+             soup = BeautifulSoup(content, "html.parser")
+             plain_text = soup.get_text(separator="\n").strip()
+        except ImportError:
+             logger.warning("BeautifulSoup not found, skipping text extraction.")
+             plain_text = ""
+
+        meta_data = {
+            "id": entry.id,
+            "title": entry.title,
+            "date": entry.published_at.isoformat(),
+            "member": member_name,
+            "url": entry.url,
+            "text": plain_text,
+            "html": content,
+            "images": local_images
+        }
+        
+        async with aiofiles.open(base_dir / "post.json", 'w', encoding='utf-8') as f:
+            await f.write(json.dumps(meta_data, ensure_ascii=False, indent=2))
 
         # Wrap content in basic valid HTML
         full_html = f"""<!DOCTYPE html>
