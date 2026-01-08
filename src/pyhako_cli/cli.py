@@ -424,7 +424,7 @@ class HakoCLI:
             logger.info(get_string("blog_scanning"))
             all_tasks = []  # List of (entry, member_id, member_name)
             
-            with tqdm(total=len(target_ids), desc="Scanning Members", unit="member") as scan_pbar:
+            with tqdm(total=len(target_ids), desc=get_string("blog_tqdm_scanning"), unit="member") as scan_pbar:
                 for m_id in target_ids:
                     m_id = str(m_id)
                     m_name = members.get(m_id, f"Member_{m_id}")
@@ -436,11 +436,11 @@ class HakoCLI:
                     scan_pbar.update(1)
             
             if not all_tasks:
-                logger.warning("No blogs found to download.")
+                logger.warning(get_string("blog_no_blogs"))
                 return
             
             logger.info(get_string("blog_downloading"))
-            logger.info(f"Found {len(all_tasks)} blog posts to download.")
+            logger.info(get_string("blog_found_posts").format(len(all_tasks)))
             
             # Phase 2: Parallel download with Semaphore
             sem = asyncio.Semaphore(20)  # 20 concurrent connections
@@ -451,7 +451,7 @@ class HakoCLI:
                     await self._save_blog_html(session, entry, m_id, m_name, display_name)
                     pbar.update(1)
             
-            with tqdm(total=len(all_tasks), desc="Downloading", unit="post") as dl_pbar:
+            with tqdm(total=len(all_tasks), desc=get_string("blog_tqdm_downloading"), unit="post") as dl_pbar:
                 await asyncio.gather(*[download_task(t, dl_pbar) for t in all_tasks])
 
     async def _save_blog_html(self, session, entry, member_id: str, member_name: str, display_name: str) -> Path:
