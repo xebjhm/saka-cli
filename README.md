@@ -66,33 +66,35 @@ For power users and automation (CI/CD, Cron).
 Perform a one-time login for a specific group.
 ```bash
 # Setup for Nogizaka46 (Default)
-./pyhako-cli -s nogizaka46 --interactive
+./pyhako-cli-linux -s nogizaka46 --interactive
+# OR (Windows)
+.\pyhako-cli-windows.exe -s nogizaka46 --interactive
 
 # Setup for Hinatazaka46
-./pyhako-cli -s hinatazaka46 --interactive
+./pyhako-cli-linux -s hinatazaka46 --interactive
 ```
 
 ### 2. Scraping
 **Basic Sync (All subscribed members):**
 ```bash
-./pyhako-cli -s nogizaka46
+./pyhako-cli-linux -s nogizaka46
 ```
 
 **Include Expired/Inactive Members:**
 ```bash
-./pyhako-cli -s nogizaka46 --include-offline
+./pyhako-cli-linux -s nogizaka46 --include-offline
 ```
 
 **Target Specific Members:**
 ```bash
 # Sync specific Group ID and Member IDs
-./pyhako-cli -g 12 -m 34 56
+./pyhako-cli-linux -g 12 -m 34 56
 ```
 
 ### 3. Cleanup
 Remove all local authentication data and tokens.
 ```bash
-./pyhako-cli --cleanup
+./pyhako-cli-linux --cleanup
 ```
 
 ## Configuration
