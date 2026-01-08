@@ -186,7 +186,7 @@ class HakoCLI:
              for m_id, m_name in members.items():
                  print(f"[{m_id}] {m_name}")
             
-             sel = input("Ids > ").strip()
+             sel = input(get_string("blog_id_prompt")).strip()
              if sel:
                  try:
                      config['members'] = [int(x) for x in sel.replace(',', ' ').split()]
@@ -400,7 +400,7 @@ class HakoCLI:
             return await scraper.get_members()
 
     async def run_blog_backup(self, member_ids=None):
-        """Run blog backup for selected members."""
+        """Run blog backup for selected members with parallel downloads."""
         import aiohttp
         from pyhako.blog import HinatazakaBlogScraper
         from pyhako.client import GROUP_CONFIG
@@ -414,31 +414,45 @@ class HakoCLI:
         async with aiohttp.ClientSession() as session:
             scraper = HinatazakaBlogScraper(session)
             
-            # Fetch members
+            # Fetch member list
             logger.info(get_string("blog_fetching_members"))
             members = await scraper.get_members()
             
             target_ids = member_ids if member_ids else list(members.keys())
             
-            # Outer progress bar: Members
-            with tqdm(total=len(target_ids), desc="Members", unit="member", position=0) as member_pbar:
+            # Phase 1: Scan and collect all blog entries
+            logger.info(get_string("blog_scanning"))
+            all_tasks = []  # List of (entry, member_id, member_name)
+            
+            with tqdm(total=len(target_ids), desc="Scanning Members", unit="member") as scan_pbar:
                 for m_id in target_ids:
                     m_id = str(m_id)
                     m_name = members.get(m_id, f"Member_{m_id}")
-                    member_pbar.set_postfix_str(m_name[:15])
+                    scan_pbar.set_postfix_str(m_name[:12])
                     
-                    # Collect entries first to know total count for inner bar
-                    entries = []
                     async for entry in scraper.get_blogs(m_id):
-                        entries.append(entry)
+                        all_tasks.append((entry, m_id, m_name))
                     
-                    # Inner progress bar: Blog posts
-                    with tqdm(total=len(entries), desc="Posts", unit="post", position=1, leave=False) as post_pbar:
-                        for entry in entries:
-                            await self._save_blog_html(session, entry, m_id, m_name, display_name)
-                            post_pbar.update(1)
-                    
-                    member_pbar.update(1)
+                    scan_pbar.update(1)
+            
+            if not all_tasks:
+                logger.warning("No blogs found to download.")
+                return
+            
+            logger.info(get_string("blog_downloading"))
+            logger.info(f"Found {len(all_tasks)} blog posts to download.")
+            
+            # Phase 2: Parallel download with Semaphore
+            sem = asyncio.Semaphore(20)  # 20 concurrent connections
+            
+            async def download_task(task_data, pbar):
+                entry, m_id, m_name = task_data
+                async with sem:
+                    await self._save_blog_html(session, entry, m_id, m_name, display_name)
+                    pbar.update(1)
+            
+            with tqdm(total=len(all_tasks), desc="Downloading", unit="post") as dl_pbar:
+                await asyncio.gather(*[download_task(t, dl_pbar) for t in all_tasks])
 
     async def _save_blog_html(self, session, entry, member_id: str, member_name: str, display_name: str) -> Path:
         """
