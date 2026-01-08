@@ -9,7 +9,12 @@ STRINGS = {
         "tos_warn": "\n[WARNING] Accessing the API via unauthorized means may violate the Terms of Service.\nThis tool is for educational purposes only. Use at your own risk.\n\nOfficial Terms of Service: {}\n\nUser must agree to the following terms (excerpt):\n\n[Japanese Original]\n第3条（知的財産権）\n3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。\n\n第8条（禁止事項）\n(16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為\n(17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為\n\n------------------------\n[Translation (Reference Only)]\n* The Japanese version is authoritative.\n\nArticle 3 (Intellectual Property Rights)\n3. Except where otherwise provided by the Company, the Customer is prohibited from reproducing, adapting, distributing, or publicly transmitting this Content.\n\nArticle 8 (Prohibited Acts)\n(16) Acts of accessing or attempting to access this Service by means other than the access methods designated by the Company.\n(17) Acts of accessing or attempting to access this Service using automated means (including crawlers and similar technologies).",
         "tos_prompt": "\nDo you agree to the above Terms of Service? [y/N]: ",
         "tos_declined": "Terms of Service declined. Exiting.",
-
+        "mode_selection": "\nSelect Mode:\n[1] Message App Backup (Subscription Required)\n[2] Official Blog Backup (Free)\n> ",
+        "blog_fetching_members": "Fetching member list from official site...",
+        "blog_select_members": "\nAvailable Members:\n(Enter ID to select one, or blank for all)\n",
+        "blog_start": "Starting Blog Backup for member: {} (ID: {})",
+        "blog_saved": "Saved: {} ({})",
+        "interactive_title": "\n=== PyHako CLI Interactive Setup ===\n",
         "cleanup_title": "=== Cleanup Wizard ===",
         "cleanup_warn": "This will remove:\n1. Secure tokens (from system keyring)\n2. Browser session (auth_data directory)\n3. Configuration files (config_*.json)",
         "cleanup_linux_chrome": "4. (Optional) Google Chrome if it was installed by this tool",

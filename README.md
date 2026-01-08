@@ -97,6 +97,21 @@ Remove all local authentication data and tokens.
 ./pyhako-cli-linux --cleanup
 ```
 
+### 4. Official Blog Backup (Hinatazaka46 Only)
+Backup member blogs (HTML + Images) from the official website. No account/subscription required.
+
+**Interactive Mode:**
+Select `Hinatazaka46` -> `Official Blog Backup` in the wizard.
+
+**Batch Mode:**
+```bash
+# Backup specific members (ID from official site)
+./pyhako-cli-linux -s hinatazaka46 --blog -m 2 4 5
+
+# Backup ALL members
+./pyhako-cli-linux -s hinatazaka46 --blog
+```
+
 ## Configuration
 Configuration is stored in `config_{group}.json` in the current working directory.
 - `auth_data/`: Browser context and cookies.

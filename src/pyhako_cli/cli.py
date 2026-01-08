@@ -165,6 +165,39 @@ class HakoCLI:
         # 1. Output Directory
         user_out = input(get_string("interactive_out").format(DEFAULT_OUTPUT)).strip()
         config['output_dir'] = user_out if user_out else DEFAULT_OUTPUT
+
+        # Mode Selection
+        mode = 'message'
+        if config['service'] == 'hinatazaka46':
+             print(get_string("mode_selection"), end="")
+             m_choice = input().strip()
+             if m_choice == '2':
+                 mode = 'blog'
+        
+        config['mode'] = mode
+        
+        if mode == 'blog':
+             # Blog Flow
+             print(get_string("blog_fetching_members"))
+             blog_cli = HakoCLI(group=Group(config['service']))
+             members = asyncio.run(blog_cli.fetch_blog_members())
+             
+             print(get_string("blog_select_members"))
+             for m_id, m_name in members.items():
+                 print(f"[{m_id}] {m_name}")
+            
+             sel = input("Ids > ").strip()
+             if sel:
+                 try:
+                     config['members'] = [int(x) for x in sel.replace(',', ' ').split()]
+                 except: 
+                     logger.warning("Invalid IDs, selecting all.")
+                     config['members'] = [] 
+             else:
+                 config['members'] = []
+            
+             print(get_string("interactive_end"))
+             return config
             
         # 2. Offline Members
         user_off = input(get_string("interactive_offline")).strip().lower()
@@ -352,7 +385,120 @@ class HakoCLI:
             progress_callback=on_progress
         )
 
-    async def run(self, group_ids=None, member_ids=None, include_inactive=False):
+    async def fetch_blog_members(self) -> dict[str, str]:
+        """Fetch available blog members from the official site."""
+        import aiohttp
+        from pyhako.blog import HinatazakaBlogScraper
+        
+        if self.group == Group.HINATAZAKA46:
+            scraper_cls = HinatazakaBlogScraper
+        else:
+            return {}
+            
+        async with aiohttp.ClientSession() as session:
+            scraper = scraper_cls(session)
+            return await scraper.get_members()
+
+    async def run_blog_backup(self, member_ids=None):
+         """Run blog backup for selected members."""
+         import aiohttp
+         from pyhako.blog import HinatazakaBlogScraper
+         
+         if self.group != Group.HINATAZAKA46:
+             logger.error("Blog backup only supported for Hinatazaka46 currently.")
+             return
+
+         async with aiohttp.ClientSession() as session:
+            scraper = HinatazakaBlogScraper(session)
+            # Fetch members to map names
+            logger.info(get_string("blog_fetching_members"))
+            members = await scraper.get_members()
+            
+            target_ids = member_ids
+            if not target_ids:
+                target_ids = list(members.keys())
+            
+            for m_id in target_ids:
+                m_id = str(m_id)
+                m_name = members.get(m_id, f"Member_{m_id}")
+                logger.info(get_string("blog_start").format(m_name, m_id))
+                
+                count = 0
+                async for entry in scraper.get_blogs(m_id):
+                     await self._save_blog_entry(session, entry, m_name)
+                     count += 1
+                     print(f"[{m_name}] {get_string('blog_saved').format(entry.title, entry.id)}")
+
+    async def _save_blog_entry(self, session, entry, member_name):
+        import aiofiles
+        
+        # Determine path
+        # output/blogs/{Service}/{Member}/{Date}_{ID}/
+        safe_name = "".join(c for c in member_name if c.isalnum() or c in (' ', '_', '-')).strip()
+        date_str = entry.published_at.strftime("%Y%m%d")
+        dir_name = f"{date_str}_{entry.id}"
+        
+        base_dir = self.output_dir / "blogs" / self.group.value / safe_name / dir_name
+        base_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save Content (HTML)
+        # We should rewrite image links to local if we download them
+        content = entry.content
+        
+        img_dir = base_dir / "images"
+        if entry.images:
+            img_dir.mkdir(exist_ok=True)
+            
+            for idx, img_url in enumerate(entry.images):
+                # Download image
+                ext = img_url.split('.')[-1]
+                if '?' in ext: ext = ext.split('?')[0]
+                img_name = f"img_{idx}.{ext}"
+                img_path = img_dir / img_name
+                
+                try:
+                    async with session.get(img_url) as resp:
+                        if resp.status == 200:
+                            data = await resp.read()
+                            async with aiofiles.open(img_path, 'wb') as f:
+                                await f.write(data)
+                            
+                            # Update content ref (basic replace)
+                            # This is simple string replace, might be risky if URL matches multiple things
+                            # Use BeautifulSoup for robustness if needed, but string replace usually ok for full URLs
+                            content = content.replace(img_url, f"./images/{img_name}")
+                except Exception as e:
+                    logger.warning(f"Failed to download image {img_url}: {e}")
+
+        # Wrap content in basic valid HTML
+        full_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{entry.title}</title>
+<style>
+body {{ font-family: sans-serif; max_width: 800px; margin: 20px auto; padding: 0 20px; line-height: 1.6; }}
+img {{ max_width: 100%; height: auto; }}
+.date {{ color: #666; font-size: 0.9em; }}
+h1 {{ margin-bottom: 0.5em; }}
+</style>
+</head>
+<body>
+<h1>{entry.title}</h1>
+<div class="date">{entry.published_at.strftime("%Y-%m-%d %H:%M")}</div>
+<hr>
+{content}
+</body>
+</html>"""
+
+        async with aiofiles.open(base_dir / "index.html", 'w', encoding='utf-8') as f:
+            await f.write(full_html)
+            
+    async def run(self, group_ids=None, member_ids=None, include_inactive=False, mode='message'):
+        if mode == 'blog':
+            await self.run_blog_backup(member_ids)
+            return
+
         from pyhako.credentials import TokenManager
         
         # 1. LOAD CONFIG & TOKENS
@@ -516,6 +662,7 @@ def get_parser():
     parser.add_argument('--cleanup', action='store_true', help=get_string("help_cleanup"))
     parser.add_argument('--lang', type=str, choices=['en', 'ja', 'zh-TW', 'zh-CN', 'yue'], help=get_string("help_lang"))
     parser.add_argument('-v', '--verbose', action='store_true', help=get_string("help_verbose"))
+    parser.add_argument('--blog', action='store_true', help="Enable Blog Backup mode (Hinatazaka46 only)")
     return parser
 
 def peek_language_from_argv() -> str:
@@ -585,6 +732,7 @@ def main():
     service_str = args.service
     output_dir = args.output
     include_offline = args.include_offline
+    mode = 'blog' if args.blog else 'message'
     
     # Parse group IDs (comma or space-separated)
     group_ids = []
@@ -605,10 +753,18 @@ def main():
         service_str = wizard_config.get('service', service_str)
         output_dir = wizard_config.get('output_dir', output_dir)
         include_offline = wizard_config.get('include_offline', include_offline)
+        mode = wizard_config.get('mode', mode)
+
         # Interactive wizard returns single group_id, convert to list
         wizard_group = wizard_config.get('group_id')
         if wizard_group:
             group_ids = [wizard_group]
+        
+        # Blog members from wizard
+        if mode == 'blog':
+             w_members = wizard_config.get('members')
+             if w_members:
+                 member_ids = w_members
     
     # Defaults
     if not output_dir:
@@ -632,7 +788,8 @@ def main():
         asyncio.run(cli.run(
             group_ids=group_ids if group_ids else None, 
             member_ids=member_ids if member_ids else None, 
-            include_inactive=include_offline 
+            include_inactive=include_offline,
+            mode=mode
         ))
     except KeyboardInterrupt:
         logger.warning(get_string("run_interrupted"))
