@@ -80,6 +80,43 @@ class HakoCLI:
         with open(self.config_file, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
 
+    def check_tos(self) -> bool:
+        """
+        Check if user agreed to ToS. If not, prompt and block.
+        Returns True if agreed, False if declined.
+        """
+        config = self.load_config()
+        if config.get('tos_agreed'):
+            return True
+            
+        # Get link based on group value
+        group_val = self.group.value
+        if group_val == 'sakurazaka46':
+            link = "https://sakurazaka46.com/s/s46app/page/app_terms"
+        elif group_val == 'hinatazaka46':
+            link = "https://www.hinatazaka46.com/s/h46app/page/app_terms"
+        else: # nogizaka46 (default)
+            link = "https://contact.nogizaka46.com/s/n46app/page/app_terms"
+
+        # Display ToS
+        print(get_string("tos_title"))
+        print(get_string("tos_warn").format(link))
+        
+        # Block
+        try:
+             choice = input(get_string("tos_prompt")).strip().lower()
+        except EOFError:
+             # Handle non-interactive environments that didn't pre-agree
+             choice = 'n'
+
+        if choice == 'y':
+            config['tos_agreed'] = True
+            self.save_config(config)
+            return True
+        else:
+            print(get_string("tos_declined"))
+            return False
+
     def run_interactive_wizard(self):
         """
         Interactive wizard to gather configuration from the user.
@@ -118,6 +155,13 @@ class HakoCLI:
         else:
             config['service'] = 'nogizaka46'
         
+        # [Fix] Check ToS immediately after service selection (before proceeding)
+        # We need to check the config for the SELECTED service, not the default one.
+        temp_group = Group(config['service'])
+        temp_cli = HakoCLI(group=temp_group)
+        if not temp_cli.check_tos():
+             sys.exit(0) # Exit if declined in wizard
+
         # 1. Output Directory
         user_out = input(get_string("interactive_out").format(DEFAULT_OUTPUT)).strip()
         config['output_dir'] = user_out if user_out else DEFAULT_OUTPUT
@@ -166,6 +210,7 @@ class HakoCLI:
                 logger.info(get_string("cleanup_removed").format(auth_path))
             except Exception as e:
                 logger.error(get_string("cleanup_fail").format(auth_path, e))
+                
                 
         # Remove ALL keys from Keyring
         try:
@@ -577,6 +622,10 @@ def main():
     
     if args.cleanup:
         asyncio.run(cli.cleanup_wizard())
+        return
+
+    # Check ToS before proceeding to ANY operation that accesses the service
+    if not cli.check_tos():
         return
 
     try:

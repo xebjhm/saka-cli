@@ -5,6 +5,11 @@ _CURRENT_LANG = 'en'
 
 STRINGS = {
     'en': {
+        "tos_title": "=== Terms of Service ===",
+        "tos_warn": "\n[WARNING] Accessing the API via unauthorized means may violate the Terms of Service.\nThis tool is for educational purposes only. Use at your own risk.\n\nOfficial Terms of Service: {}\n\nUser must agree to the following terms (excerpt):\n\n[Japanese Original]\n第3条（知的財産権）\n3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。\n\n第8条（禁止事項）\n(16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為\n(17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為\n\n------------------------\n[Translation (Reference Only)]\n* The Japanese version is authoritative.\n\nArticle 3 (Intellectual Property Rights)\n3. Except where otherwise provided by the Company, the Customer is prohibited from reproducing, adapting, distributing, or publicly transmitting this Content.\n\nArticle 8 (Prohibited Acts)\n(16) Acts of accessing or attempting to access this Service by means other than the access methods designated by the Company.\n(17) Acts of accessing or attempting to access this Service using automated means (including crawlers and similar technologies).",
+        "tos_prompt": "\nDo you agree to the above Terms of Service? [y/N]: ",
+        "tos_declined": "Terms of Service declined. Exiting.",
+
         "cleanup_title": "=== Cleanup Wizard ===",
         "cleanup_warn": "This will remove:\n1. Secure tokens (from system keyring)\n2. Browser session (auth_data directory)\n3. Configuration files (config_*.json)",
         "cleanup_linux_chrome": "4. (Optional) Google Chrome if it was installed by this tool",
@@ -72,6 +77,11 @@ STRINGS = {
         "help_verbose": "Enable verbose logging"
     },
     'ja': {
+        "tos_title": "=== 利用規約 ===",
+        "tos_warn": "\n【警告】正規以外の手段でのAPIアクセスは利用規約に違反する可能性があります。\n本ツールは教育目的のみで提供されています。自己責任でご利用ください。\n\n公式利用規約: {}\n\n本ツールを使用するには、以下の公式規約（抜粋）に同意する必要があります：\n\n第3条（知的財産権）\n3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。\n\n第8条（禁止事項）\n(16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為\n(17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為",
+        "tos_prompt": "\n上記の利用規約に同意しますか？ [y/N]: ",
+        "tos_declined": "同意されませんでした。終了します。",
+
         "cleanup_title": "=== クリーンアップウィザード ===",
         "cleanup_warn": "以下の項目が削除されます：\n1. セキュアトークン (システムキーリング)\n2. ブラウザセッション (auth_data ディレクトリ)\n3. 設定ファイル (config_*.json)",
         "cleanup_linux_chrome": "4. (任意) Google Chrome (このツールでインストールされた場合)",
@@ -139,6 +149,11 @@ STRINGS = {
         "help_verbose": "詳細ログを有効化"
     },
     'zh-TW': {
+        "tos_title": "=== 服務條款 ===",
+        "tos_warn": "\n【警告】透過非官方手段存取 API 可能違反服務條款。\n本工具僅供教學用途。請自行承擔風險。\n\n官方服務條款: {}\n\n使用本工具前，您必須同意以下官方條款（節錄）：\n\n[日文原文]\n第3条（知的財産権）\n3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。\n\n第8条（禁止事項）\n(16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為\n(17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為\n\n------------------------\n[翻譯 (僅供參考)]\n* 以日文原文為準\n\n第3條（智慧財產權）\n3. 除本公司另有規定外，禁止客戶對本內容進行複製、改編、散布、公開傳輸等行為。\n\n第8條（禁止事項）\n(16) 透過本公司指定之存取方法以外的手段存取本服務，或嘗試存取本服務的行為。\n(17) 使用自動化手段（包含網路爬蟲及類似技術）存取本服務，或嘗試存取本服務的行為。",
+        "tos_prompt": "\n您是否同意上述服務條款？ [y/N]: ",
+        "tos_declined": "拒絕服務條款。程式結束。",
+
         "cleanup_title": "=== 清除工具精靈 ===",
         "cleanup_warn": "此操作將會移除：\n1. 安全令牌 (系統鑰匙圈)\n2. 瀏覽器工作階段 (auth_data 目錄)\n3. 設定檔 (config_*.json)",
         "cleanup_linux_chrome": "4. (選用) Google Chrome (若是透過此工具安裝)",
@@ -206,6 +221,11 @@ STRINGS = {
         "help_verbose": "啟用詳細日誌"
     },
     'zh-CN': {
+        "tos_title": "=== 服务条款 ===",
+        "tos_warn": "\n【警告】通过非官方手段访问 API 可能违反服务条款。\n本工具仅供教学用途。请自行承担风险。\n\n官方服务条款: {}\n\n使用本工具前，您必须同意以下官方条款（节录）：\n\n[日文原文]\n第3条（知的財産権）\n3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。\n\n第8条（禁止事項）\n(16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為\n(17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為\n\n------------------------\n[翻译 (仅供参考)]\n* 以日文原文为准\n\n第3条（知识产权）\n3. 除本公司另有规定外，禁止客户对本内容进行复制、改编、散布、公开传输等行为。\n\n第8条（禁止事项）\n(16) 通过本公司指定之访问方法以外的手段访问本服务，或尝试访问本服务的行为。\n(17) 使用自动化手段（包括网络爬虫及类似技术）访问本服务，或尝试访问本服务的行为。",
+        "tos_prompt": "\n您是否同意上述服务条款？ [y/N]: ",
+        "tos_declined": "拒绝服务条款。程序退出。",
+
         "cleanup_title": "=== 清理向导 ===",
         "cleanup_warn": "此操作将删除：\n1. 安全令牌 (系统密钥链)\n2. 浏览器会话 (auth_data 目录)\n3. 配置文件 (config_*.json)",
         "cleanup_linux_chrome": "4. (可选) Google Chrome (如果是通过此工具安装的)",
@@ -273,6 +293,11 @@ STRINGS = {
         "help_verbose": "启用详细日志"
     },
     'yue': {
+        "tos_title": "=== 服務條款 ===",
+        "tos_warn": "\n【警告】用非官方手段 Access 個 API 可能會違反服務條款\n呢個工具係教學用途。風險自負。\n\n官方服務條款: {}\n\n用呢個工具之前，你要同意以下官方條款（節錄）：\n\n[日文原文]\n第3条（知的財産権）\n3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。\n\n第8条（禁止事項）\n(16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為\n(17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為\n\n------------------------\n[翻譯 (參考用)]\n* 一切以日文原文為準\n\n第3條（知識產權）\n3. 除咗本公司另有規定之外，禁止客戶將本內容複製、改編、散布、或者公開傳輸等。\n\n第8條（禁止事項）\n(16) 用本公司指定存取方法以外嘅手段去存取本服務，或者嘗試存取本服務嘅行為。\n(17) 用自動化手段（包括爬蟲同埋類似嘅技術）去存取本服務，或者嘗試存取本服務嘅行為。",
+        "tos_prompt": "\n你同唔同意以上服務條款？ [y/N]: ",
+        "tos_declined": "拒絕服務條款。Bye Bye。",
+
         "cleanup_title": "=== 清理精靈 ===",
         "cleanup_warn": "這將會移除：\n1. 安全令牌 (系統鑰匙圈)\n2. 瀏覽器 Session (auth_data 目錄)\n3. 設定檔 (config_*.json)",
         "cleanup_linux_chrome": "4. (可選) Google Chrome (如果係由呢個工具安裝嘅話)",
