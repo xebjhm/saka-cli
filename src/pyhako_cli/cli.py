@@ -400,62 +400,76 @@ class HakoCLI:
             return await scraper.get_members()
 
     async def run_blog_backup(self, member_ids=None):
-         """Run blog backup for selected members."""
-         import aiohttp
-         from pyhako.blog import HinatazakaBlogScraper
-         
-         if self.group != Group.HINATAZAKA46:
-             logger.error("Blog backup only supported for Hinatazaka46 currently.")
-             return
+        """Run blog backup for selected members."""
+        import aiohttp
+        from pyhako.blog import HinatazakaBlogScraper
+        from pyhako.client import GROUP_CONFIG
+        
+        if self.group != Group.HINATAZAKA46:
+            logger.error("Blog backup only supported for Hinatazaka46 currently.")
+            return
 
-         async with aiohttp.ClientSession() as session:
+        display_name = GROUP_CONFIG[self.group].get("display_name", self.group.value)
+
+        async with aiohttp.ClientSession() as session:
             scraper = HinatazakaBlogScraper(session)
-            # Fetch members to map names
+            
+            # Fetch members
             logger.info(get_string("blog_fetching_members"))
             members = await scraper.get_members()
             
-            target_ids = member_ids
-            if not target_ids:
-                target_ids = list(members.keys())
+            target_ids = member_ids if member_ids else list(members.keys())
             
-            for m_id in target_ids:
-                m_id = str(m_id)
-                m_name = members.get(m_id, f"Member_{m_id}")
-                logger.info(get_string("blog_start").format(m_name, m_id))
-                
-                count = 0
-                async for entry in scraper.get_blogs(m_id):
-                     await self._save_blog_entry(session, entry, m_name)
-                     count += 1
-                     print(f"[{m_name}] {get_string('blog_saved').format(entry.title, entry.id)}")
+            # Outer progress bar: Members
+            with tqdm(total=len(target_ids), desc="Members", unit="member", position=0) as member_pbar:
+                for m_id in target_ids:
+                    m_id = str(m_id)
+                    m_name = members.get(m_id, f"Member_{m_id}")
+                    member_pbar.set_postfix_str(m_name[:15])
+                    
+                    # Collect entries first to know total count for inner bar
+                    entries = []
+                    async for entry in scraper.get_blogs(m_id):
+                        entries.append(entry)
+                    
+                    # Inner progress bar: Blog posts
+                    with tqdm(total=len(entries), desc="Posts", unit="post", position=1, leave=False) as post_pbar:
+                        for entry in entries:
+                            await self._save_blog_entry(session, entry, m_id, m_name, display_name)
+                            post_pbar.update(1)
+                    
+                    member_pbar.update(1)
 
-    async def _save_blog_entry(self, session, entry, member_name):
+    async def _save_blog_entry(self, session, entry, member_id: str, member_name: str, display_name: str):
+        """Save a blog entry with structured JSON and HTML."""
         import aiofiles
+        from bs4 import BeautifulSoup
         
-        # Determine path
-        # output/blogs/{Service}/{Member}/{Date}_{ID}/
-        safe_name = "".join(c for c in member_name if c.isalnum() or c in (' ', '_', '-')).strip()
+        # Folder: output/{DisplayName}/blogs/{MemberName}/{Date}_{ID}/
+        safe_name = "".join(c for c in member_name if c.isalnum() or c in (' ', '_', '-', 'ぁ-んァ-ン一-龯')).strip()
+        if not safe_name:
+            safe_name = f"member_{member_id}"
         date_str = entry.published_at.strftime("%Y%m%d")
         dir_name = f"{date_str}_{entry.id}"
         
-        base_dir = self.output_dir / "blogs" / self.group.value / safe_name / dir_name
+        base_dir = self.output_dir / display_name / "blogs" / safe_name / dir_name
         base_dir.mkdir(parents=True, exist_ok=True)
         
-        # Save Content (HTML)
-        # We should rewrite image links to local if we download them
+        # Process Images
         content = entry.content
-        local_images = []
+        images_data = []
         
         img_dir = base_dir / "images"
         if entry.images:
             img_dir.mkdir(exist_ok=True)
             
             for idx, img_url in enumerate(entry.images):
-                # Download image
                 ext = img_url.split('.')[-1]
-                if '?' in ext: ext = ext.split('?')[0]
+                if '?' in ext:
+                    ext = ext.split('?')[0]
                 img_name = f"img_{idx}.{ext}"
                 img_path = img_dir / img_name
+                local_path = f"./images/{img_name}"
                 
                 try:
                     async with session.get(img_url) as resp:
@@ -464,44 +478,55 @@ class HakoCLI:
                             async with aiofiles.open(img_path, 'wb') as f:
                                 await f.write(data)
                             
-                            local_images.append(f"./images/{img_name}")
-                            # Update content ref (basic replace)
-                            content = content.replace(img_url, f"./images/{img_name}")
+                            content = content.replace(img_url, local_path)
+                            images_data.append({
+                                "original_url": img_url,
+                                "local_path": local_path,
+                                "caption": ""
+                            })
                 except Exception as e:
                     logger.warning(f"Failed to download image {img_url}: {e}")
 
-        # Generate JSON Metadata (Source of Truth)
-        try:
-             from bs4 import BeautifulSoup
-             soup = BeautifulSoup(content, "html.parser")
-             plain_text = soup.get_text(separator="\n").strip()
-        except ImportError:
-             logger.warning("BeautifulSoup not found, skipping text extraction.")
-             plain_text = ""
+        # Extract plain text
+        soup = BeautifulSoup(content, "html.parser")
+        plain_text = soup.get_text(separator="\n").strip()
+        
+        # Basic chunking (split by double newlines for paragraphs)
+        chunks = [c.strip() for c in plain_text.split("\n\n") if c.strip()]
 
-        meta_data = {
-            "id": entry.id,
-            "title": entry.title,
-            "date": entry.published_at.isoformat(),
-            "member": member_name,
-            "url": entry.url,
-            "text": plain_text,
-            "html": content,
-            "images": local_images
+        # New JSON Schema
+        post_data = {
+            "meta": {
+                "id": entry.id,
+                "member_id": member_id,
+                "member_name": member_name,
+                "title": entry.title,
+                "published_at": entry.published_at.isoformat(),
+                "url": entry.url,
+                "tags": []
+            },
+            "content": {
+                "html_raw": content,
+                "plain_text": plain_text,
+                "chunks": chunks
+            },
+            "resources": {
+                "images": images_data
+            }
         }
         
         async with aiofiles.open(base_dir / "post.json", 'w', encoding='utf-8') as f:
-            await f.write(json.dumps(meta_data, ensure_ascii=False, indent=2))
+            await f.write(json.dumps(post_data, ensure_ascii=False, indent=2))
 
-        # Wrap content in basic valid HTML
+        # Generate HTML for viewing
         full_html = f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <title>{entry.title}</title>
 <style>
-body {{ font-family: sans-serif; max_width: 800px; margin: 20px auto; padding: 0 20px; line-height: 1.6; }}
-img {{ max_width: 100%; height: auto; }}
+body {{ font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; line-height: 1.6; }}
+img {{ max-width: 100%; height: auto; }}
 .date {{ color: #666; font-size: 0.9em; }}
 h1 {{ margin-bottom: 0.5em; }}
 </style>
