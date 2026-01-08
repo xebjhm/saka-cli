@@ -428,11 +428,16 @@ class HakoCLI:
             return []
         
         try:
-            token = TokenManager().load_session(self.group.value)
-            if not token:
+            token_data = TokenManager().load_session(self.group.value)
+            if not token_data:
                 return []
             
-            self.client = Client(self.group, token)
+            self.client = Client(
+                self.group,
+                access_token=token_data.get('access_token'),
+                refresh_token=token_data.get('refresh_token'),
+                cookies=token_data.get('cookies')
+            )
             
             async with aiohttp.ClientSession() as session:
                 groups = await self.client.get_groups(session, include_inactive)
