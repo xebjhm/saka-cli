@@ -34,7 +34,25 @@ We use `pytest` for unit and integration testing:
 uv run pytest
 ```
 
-### 3. Linting & Formatting
+### 3. Local Build Testing (Shift-Left)
+Test PyInstaller builds locally before pushing to CI:
+
+**Build the executable**:
+```bash
+uv run python scripts/build_local.py
+```
+
+**Smoke test**:
+```bash
+uv run python scripts/test_build.py
+# Or test directly:
+./dist/pyhako-cli --help
+```
+
+**Windows Helper**:
+Run `scripts/build_windows.bat` (works from Explorer, CMD, or WSL path).
+
+### 4. Linting & Formatting
 We enforce strict code style using `ruff`:
 ```bash
 uvx ruff check .

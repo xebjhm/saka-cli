@@ -6,18 +6,22 @@ datas += copy_metadata('playwright')
 datas += copy_metadata('tqdm')
 datas += copy_metadata('aiohttp')
 
+import os
+project_dir = os.path.abspath(os.getcwd())
+pyhako_src = os.path.abspath(os.path.join(project_dir, '../PyHako/src'))
+
 a = Analysis(
     ['src/pyhako_cli/cli.py'],
-    pathex=['src'],
+    pathex=['src', pyhako_src],
     binaries=[],
     datas=datas,
     hiddenimports=[
         'pyhako', 'pyhako.auth', 'pyhako.client', 'pyhako.utils', 
         'pyhako.manager', 'pyhako.credentials', 'pyhako.logging',
         'pyhako_cli', 'pyhako_cli.logging_setup', 'pyhako_cli.strings',
-        'structlog', 'keyrings.alt'
+        'structlog', 'keyrings.alt', 'playwright.__main__'
     ],
-    hookspath=[],
+    hookspath=['.'],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
