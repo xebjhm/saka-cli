@@ -69,6 +69,10 @@ STRINGS = {
         "interactive_out": "Enter output directory (default: {}): ",
         "interactive_offline": "Include past/expired subscriptions? [y/N]: ",
         "interactive_group_id": "Enter Group ID (leave empty to scan all): ",
+        "msg_fetching_members": "Fetching subscribed members...",
+        "msg_select_members": "\nSubscribed Members:",
+        "msg_id_prompt": "\nEnter member IDs (comma-separated, blank for all) > ",
+        "msg_no_members": "No subscribed members found.",
         "interactive_end": "========================",
         "interactive_exit": "\nPress Enter to exit...",
 

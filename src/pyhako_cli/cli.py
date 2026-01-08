@@ -203,16 +203,29 @@ class HakoCLI:
         user_off = input(get_string("interactive_offline")).strip().lower()
         config['include_offline'] = (user_off == 'y')
 
-        # 3. Group ID
-        user_group = input(get_string("interactive_group_id")).strip()
-        if user_group:
+        # 3. Fetch and display subscribed members
+        print(get_string("msg_fetching_members"))
+        msg_cli = HakoCLI(group=Group(config['service']))
+        members = asyncio.run(msg_cli.fetch_msg_members(config['include_offline']))
+        
+        if not members:
+            logger.warning(get_string("msg_no_members"))
+            print(get_string("interactive_end"))
+            return config
+        
+        print(get_string("msg_select_members"))
+        for m in members:
+            print(f"[{m['id']}] {m['name']}")
+        
+        sel = input(get_string("msg_id_prompt")).strip()
+        if sel:
             try:
-                config['group_id'] = int(user_group)
-            except ValueError:
-                 logger.warning(get_string("invalid_group_id"))
-                 config['group_id'] = None
+                config['members'] = [int(x) for x in sel.replace(',', ' ').split()]
+            except:
+                logger.warning("Invalid member IDs, selecting all.")
+                config['members'] = []
         else:
-            config['group_id'] = None
+            config['members'] = []
 
         print(get_string("interactive_end"))
         return config
@@ -398,6 +411,42 @@ class HakoCLI:
         async with aiohttp.ClientSession() as session:
             scraper = scraper_cls(session)
             return await scraper.get_members()
+
+    async def fetch_msg_members(self, include_inactive: bool = False) -> list[dict]:
+        """
+        Fetch subscribed message members from the API.
+        Requires valid authentication.
+        
+        Returns:
+            List of group dicts with 'id' and 'name' (member info).
+        """
+        import aiohttp
+        from pyhako.credentials import TokenManager
+        
+        config = self.load_config()
+        if not config.get('tos_agreed'):
+            return []
+        
+        try:
+            token = TokenManager().get_session(self.group.value)
+            if not token:
+                return []
+            
+            self.client = Client(self.group, token)
+            
+            async with aiohttp.ClientSession() as session:
+                groups = await self.client.get_groups(session, include_inactive)
+                # Extract member info: id and name
+                members = []
+                for g in groups:
+                    members.append({
+                        'id': g.get('id'),
+                        'name': g.get('name', f"Member_{g.get('id')}")
+                    })
+                return members
+        except Exception as e:
+            logger.warning(f"Failed to fetch members: {e}")
+            return []
 
     async def run_blog_backup(self, member_ids=None):
         """Run blog backup for selected members with parallel downloads."""
