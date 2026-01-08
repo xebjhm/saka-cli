@@ -5,7 +5,7 @@ Smoke tests for built PyHakoCLI executable.
 Run after build_local.py to verify the built exe works.
 
 Usage:
-    uv run python scripts/test_build.py
+    uv run python scripts/verify_build.py
 
 Tests:
     1. --help returns 0

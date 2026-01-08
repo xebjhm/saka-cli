@@ -74,13 +74,14 @@ if %ERRORLEVEL% neq 0 (
 
 
 
-echo [4/5] Running smoke tests (test_build.py)...
+
+echo [4/5] Running smoke tests (verify_build.py)...
 REM Unset inherited environment variables from the parent 'uv run' that triggered this script.
 REM This ensures the nested 'uv run' treats the temp workspace as an isolated project.
 set VIRTUAL_ENV=
 set UV_PROJECT_ENVIRONMENT=
 
-uv run python scripts/test_build.py --skip-build
+uv run python scripts/verify_build.py --skip-build
 if %ERRORLEVEL% neq 0 (
     echo ERROR: Smoke tests failed!
     popd
