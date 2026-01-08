@@ -428,7 +428,7 @@ class HakoCLI:
             return []
         
         try:
-            token = TokenManager().get_session(self.group.value)
+            token = TokenManager().load_session(self.group.value)
             if not token:
                 return []
             
