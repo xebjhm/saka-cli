@@ -10,7 +10,7 @@ from tqdm import tqdm
 from datetime import datetime, timezone
 import locale
 import ctypes
-from pyhako import Client, BrowserAuth, SyncManager, Group
+from pyhako import Client, BrowserAuth, SyncManager, Group, get_auth_dir
 
 from pyhako_cli.logging_setup import setup_logging
 from pyhako_cli.strings import get_string, set_language, get_language
@@ -158,8 +158,8 @@ class HakoCLI:
         logger.info(get_string("cleanup_removing"))
         import shutil
         
-        # Remove auth_data
-        auth_path = Path("auth_data")
+        # Remove auth_data from userData path
+        auth_path = get_auth_dir()
         if auth_path.exists():
             try:
                 shutil.rmtree(auth_path)
@@ -229,8 +229,8 @@ class HakoCLI:
         print(title_str) # UI Header
         logger.info(get_string("setup_browser"))
         
-        # Use a persistent directory 'auth_data' in the current working directory
-        auth_dir = Path("auth_data").absolute()
+        # Use platform-specific user data directory for browser session
+        auth_dir = get_auth_dir()
         logger.info(get_string("setup_auth_dir").format(auth_dir))
         
         # Use Chrome (requires Chrome to be installed)
@@ -343,7 +343,8 @@ class HakoCLI:
                     refresh_token=token_data.get('refresh_token'),
                     cookies=token_data.get('cookies'),
                     app_id=config.get('x-talk-app-id'),
-                    user_agent=config.get('user-agent')
+                    user_agent=config.get('user-agent'),
+                    auth_dir=config.get('auth_dir')
                 )
                 
                 # Check auth
@@ -365,7 +366,8 @@ class HakoCLI:
                              refresh_token=token_data.get('refresh_token'),
                              cookies=token_data.get('cookies'),
                              app_id=config.get('x-talk-app-id'),
-                             user_agent=config.get('user-agent')
+                             user_agent=config.get('user-agent'),
+                             auth_dir=config.get('auth_dir')
                           )
                           
                           # Just verify connectivity, don't force refresh immediately
