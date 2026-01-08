@@ -10,7 +10,7 @@ requires-python = ">=3.9"
 dependencies = [
     "tqdm>=4.66.0",
     "aiofiles>=23.0.0",
-    "pyhako>=0.1.0rc1",
+    "pyhako>=0.1.0",
     "structlog>=24.1.0",
     "keyrings-alt>=5.0.2",
 ]
