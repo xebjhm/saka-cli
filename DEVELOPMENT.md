@@ -46,7 +46,7 @@ uv run python scripts/build_local.py
 ```bash
 uv run python scripts/test_build.py
 # Or test directly:
-./dist/pyhako-cli --help
+./dist/pyhako-cli-linux --help
 ```
 
 **Windows Helper**:

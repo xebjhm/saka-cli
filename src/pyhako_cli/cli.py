@@ -9,8 +9,7 @@ from pathlib import Path
 from tqdm import tqdm
 from datetime import datetime, timezone
 import locale
-import ctypes
-from pyhako import Client, BrowserAuth, SyncManager, Group, get_auth_dir
+from pyhako import Client, BrowserAuth, SyncManager, Group, get_auth_dir, get_user_data_dir, SessionExpiredError
 
 from pyhako_cli.logging_setup import setup_logging
 from pyhako_cli.strings import get_string, set_language, get_language
@@ -31,7 +30,7 @@ def detect_system_language():
             try:
                 locale.setlocale(locale.LC_ALL, '')  # Initialize from environment
                 lang_sys = locale.getlocale()[0]
-            except:
+            except Exception:
                 pass
 
         if lang_sys:
@@ -55,6 +54,33 @@ def detect_system_language():
 # CLI Config
 DEFAULT_OUTPUT = "output"
 DEFAULT_CONFIG = "config.json"
+CLI_PREFS_FILE = "cli_preferences.json"
+
+
+def get_cli_prefs_file() -> Path:
+    """Get path to the global CLI preferences file.
+
+    Stores settings that apply across all groups: language, output directory, etc.
+    Location: {user_data_dir}/cli_preferences.json
+    """
+    return get_user_data_dir() / CLI_PREFS_FILE
+
+
+def load_cli_prefs() -> dict:
+    """Load global CLI preferences."""
+    prefs_file = get_cli_prefs_file()
+    if prefs_file.exists():
+        with open(prefs_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+
+def save_cli_prefs(prefs: dict) -> None:
+    """Save global CLI preferences."""
+    prefs_file = get_cli_prefs_file()
+    with open(prefs_file, 'w', encoding='utf-8') as f:
+        json.dump(prefs, f, indent=2)
+
 
 def parse_int_list(value: str) -> list[int]:
     """Parse comma or space-separated integers."""
@@ -66,7 +92,9 @@ class HakoCLI:
     def __init__(self, output_dir: str = DEFAULT_OUTPUT, group: Group = Group.HINATAZAKA46):
         self.output_dir = Path(output_dir)
         self.group = group
-        self.config_file = Path(f"config_{group.value}.json")
+        # Store config in user data directory for consistent location across platforms
+        # Windows: %APPDATA%/pyhako, macOS: ~/Library/Application Support/pyhako, Linux: ~/.local/share/pyhako
+        self.config_file = get_user_data_dir() / f"config_{group.value}.json"
         self.client = None
         self.manager = None 
 
@@ -80,7 +108,69 @@ class HakoCLI:
         with open(self.config_file, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
 
-    def run_interactive_wizard(self):
+    def show_session_expired(self):
+        """
+        Display a user-friendly session expired message.
+        Similar to the official app: clean, clear, and actionable.
+        Uses a simple format that works reliably across all terminals.
+        """
+        line = "─" * 62
+        
+        print()
+        print(f"  {line}")
+        print()
+        print(f"    {get_string('session_expired_title')}")
+        print()
+        
+        # Handle multi-line message
+        message = get_string("session_expired_message").replace("\\n", "\n")
+        for msg_line in message.split("\n"):
+            if msg_line:
+                print(f"    {msg_line}")
+        
+        print()
+        print(f"  {line}")
+        print()
+        input(get_string("session_expired_prompt"))
+
+    def check_tos(self) -> bool:
+        """
+        Check if user agreed to ToS. If not, prompt and block.
+        Returns True if agreed, False if declined.
+        """
+        config = self.load_config()
+        if config.get('tos_agreed'):
+            return True
+            
+        # Get link based on group value
+        group_val = self.group.value
+        if group_val == 'sakurazaka46':
+            link = "https://sakurazaka46.com/s/s46app/page/app_terms"
+        elif group_val == 'hinatazaka46':
+            link = "https://www.hinatazaka46.com/s/h46app/page/app_terms"
+        else: # nogizaka46 (default)
+            link = "https://contact.nogizaka46.com/s/n46app/page/app_terms"
+
+        # Display ToS
+        print(get_string("tos_title"))
+        print(get_string("tos_warn").format(link))
+        
+        # Block
+        try:
+             choice = input(get_string("tos_prompt")).strip().lower()
+        except EOFError:
+             # Handle non-interactive environments that didn't pre-agree
+             choice = 'n'
+
+        if choice == 'y':
+            config['tos_agreed'] = True
+            self.save_config(config)
+            return True
+        else:
+            print(get_string("tos_declined"))
+            return False
+
+    def run_interactive_wizard(self, force_lang=False):
         """
         Interactive wizard to gather configuration from the user.
         Returns a dictionary with configuration keys.
@@ -90,9 +180,12 @@ class HakoCLI:
         
         config = {}
 
-        # -1. Language Selection (Skip if already auto-detected)
+        # -1. Language Selection (Skip if already strict via --lang, or auto-detected non-English)
         current_lang = get_language()
-        if current_lang != 'en':
+        if force_lang:
+            # Explicitly forced by CLI arg, skip prompt
+            selected_lang = current_lang
+        elif current_lang != 'en':
             # Language was already detected from config/system - use it silently
             selected_lang = current_lang
         else:
@@ -101,12 +194,19 @@ class HakoCLI:
             lang_choice = input().strip()
             selected_lang = 'en'  # Default
             if lang_choice:
-                if lang_choice == '2': selected_lang = 'ja'
-                elif lang_choice == '3': selected_lang = 'zh-TW'
-                elif lang_choice == '4': selected_lang = 'zh-CN'
-                elif lang_choice == '5': selected_lang = 'yue'
+                if lang_choice == '2':
+                    selected_lang = 'ja'
+                elif lang_choice == '3':
+                    selected_lang = 'zh-TW'
+                elif lang_choice == '4':
+                    selected_lang = 'zh-CN'
+                elif lang_choice == '5':
+                    selected_lang = 'yue'
             set_language(selected_lang)
-        config['lang'] = selected_lang  # Store for saving
+            # Save language to global CLI preferences
+            prefs = load_cli_prefs()
+            prefs['lang'] = selected_lang
+            save_cli_prefs(prefs)
 
         # 0. Service Selection
         print(get_string("interactive_service"), end="")
@@ -118,24 +218,105 @@ class HakoCLI:
         else:
             config['service'] = 'nogizaka46'
         
+        # [Fix] Check ToS immediately after service selection (before proceeding)
+        # We need to check the config for the SELECTED service, not the default one.
+        temp_group = Group(config['service'])
+        temp_cli = HakoCLI(group=temp_group)
+        if not temp_cli.check_tos():
+             sys.exit(0) # Exit if declined in wizard
+
         # 1. Output Directory
         user_out = input(get_string("interactive_out").format(DEFAULT_OUTPUT)).strip()
         config['output_dir'] = user_out if user_out else DEFAULT_OUTPUT
+
+        # Mode Selection (all groups support blog backup)
+        mode = 'message'
+        print(get_string("mode_selection"), end="")
+        m_choice = input().strip()
+        if m_choice == '2':
+            mode = 'blog'
+        
+        config['mode'] = mode
+        
+        if mode == 'blog':
+             # Blog Flow
+             print(get_string("blog_fetching_members"))
+             blog_cli = HakoCLI(group=Group(config['service']))
+             members = asyncio.run(blog_cli.fetch_blog_members())
+
+             print(get_string("blog_select_members"))
+             for m_id, m_name in members.items():
+                 print(f"[{m_id}] {m_name}")
+
+             sel = input(get_string("blog_id_prompt")).strip()
+             if sel:
+                 try:
+                     config['members'] = [int(x) for x in sel.replace(',', ' ').split()]
+                 except ValueError:
+                     logger.warning("Invalid IDs, selecting all.")
+                     config['members'] = []
+             else:
+                 config['members'] = []
+
+             # Cache members to avoid duplicate fetch in run_blog_backup
+             config['_blog_members_cache'] = members
+
+             print(get_string("interactive_end"))
+             return config
             
         # 2. Offline Members
         user_off = input(get_string("interactive_offline")).strip().lower()
         config['include_offline'] = (user_off == 'y')
 
-        # 3. Group ID
-        user_group = input(get_string("interactive_group_id")).strip()
-        if user_group:
+        # 3. Fetch and display subscribed members
+        print(get_string("msg_fetching_members"))
+        msg_cli = HakoCLI(group=Group(config['service']))
+        try:
+            members = asyncio.run(msg_cli.fetch_msg_members(config['include_offline']))
+        except SessionExpiredError:
+            print(get_string("session_expired_prompt"))
             try:
-                config['group_id'] = int(user_group)
+                # Reuse the robust setup wizard for login (handles Chrome install, config, etc.)
+                asyncio.run(msg_cli.setup_wizard())
+                
+                # Re-initialize client to pick up the newly saved credentials from storage
+                # This ensures we have a clean state with the fresh token/cookies
+                msg_cli = HakoCLI(group=Group(config['service']))
+                
+                # Retry fetching members
+                members = asyncio.run(msg_cli.fetch_msg_members(config['include_offline']))
+            except Exception as e:
+                logger.error(f"Login failed: {e}")
+                members = []
+        
+        if not members:
+            logger.warning(get_string("msg_no_members"))
+            print(get_string("interactive_end"))
+            return config
+        
+        # Split online and offline members for clearer display
+        online_members = [m for m in members if m.get('state') == 'active']
+        offline_members = [m for m in members if m.get('state') != 'active']
+
+        if online_members:
+            print(get_string("msg_select_members"))
+            for m in online_members:
+                print(f"[{m['id']}] {m['name']}")
+        
+        if offline_members:
+            print(get_string("msg_offline_members"))
+            for m in offline_members:
+                print(f"[{m['id']}] {m['name']}")
+        
+        sel = input(get_string("msg_id_prompt")).strip()
+        if sel:
+            try:
+                config['members'] = [int(x) for x in sel.replace(',', ' ').split()]
             except ValueError:
-                 logger.warning(get_string("invalid_group_id"))
-                 config['group_id'] = None
+                logger.warning("Invalid member IDs, selecting all.")
+                config['members'] = []
         else:
-            config['group_id'] = None
+            config['members'] = []
 
         print(get_string("interactive_end"))
         return config
@@ -167,6 +348,7 @@ class HakoCLI:
             except Exception as e:
                 logger.error(get_string("cleanup_fail").format(auth_path, e))
                 
+                
         # Remove ALL keys from Keyring
         try:
             from pyhako.credentials import TokenManager
@@ -178,7 +360,7 @@ class HakoCLI:
                 try:
                     TokenManager().delete_session(g.value)
                     cleaned_tokens += 1
-                except:
+                except Exception:
                     pass
             
             if cleaned_tokens > 0:
@@ -212,6 +394,14 @@ class HakoCLI:
                 except Exception as e:
                     logger.error(get_string("cleanup_fail").format(self.config_file.name, e))
 
+        # Remove global CLI preferences file
+        prefs_file = get_cli_prefs_file()
+        if prefs_file.exists():
+            try:
+                prefs_file.unlink()
+                logger.info(get_string("cleanup_removed").format(prefs_file.name))
+            except Exception as e:
+                logger.error(get_string("cleanup_fail").format(prefs_file.name, e))
 
         logger.info(get_string("cleanup_done"))
         logger.info(get_string("cleanup_safe_note").format(self.output_dir))
@@ -281,13 +471,12 @@ class HakoCLI:
                 logger.error(get_string("error_keyring_required"))
                 return
 
-            # SAVE NON-SENSITIVE CONFIG
+            # SAVE NON-SENSITIVE CONFIG (per-group settings)
             config = self.load_config()
             config['auth_dir'] = str(auth_dir)
             config['x-talk-app-id'] = creds.get('x-talk-app-id')
             config['user-agent'] = creds.get('user-agent')
             config['updated_at'] = datetime.now(timezone.utc).isoformat()
-            config['lang'] = get_language()
             self.save_config(config)
             
             logger.info(get_string("setup_login_success"))
@@ -307,7 +496,277 @@ class HakoCLI:
             progress_callback=on_progress
         )
 
-    async def run(self, group_ids=None, member_ids=None, include_inactive=False):
+    async def fetch_blog_members(self) -> dict[str, str]:
+        """Fetch available blog members from the official site."""
+        import aiohttp
+        from pyhako.blog import get_scraper
+
+        async with aiohttp.ClientSession() as session:
+            scraper = get_scraper(self.group, session)
+            return await scraper.get_members()
+
+    async def fetch_msg_members(self, include_offline: bool = False) -> list[dict]:
+        """
+        Fetch subscribed message members from the API.
+        Requires valid authentication.
+        
+        Returns:
+            List of group dicts with 'id' and 'name' (member info).
+        """
+        import aiohttp
+        from pyhako.credentials import TokenManager
+        
+        config = self.load_config()
+        if not config.get('tos_agreed'):
+            return []
+        
+        try:
+            token_data = TokenManager().load_session(self.group.value)
+            if not token_data:
+                return []
+            
+            self.client = Client(
+                self.group,
+                access_token=token_data.get('access_token'),
+                refresh_token=token_data.get('refresh_token'),
+                cookies=token_data.get('cookies')
+            )
+            
+            async with aiohttp.ClientSession() as session:
+                groups = await self.client.get_groups(session, include_inactive=include_offline)
+                # Extract member info: id, name, and subscription state
+                members = []
+                for g in groups:
+                    members.append({
+                        'id': g.get('id'),
+                        'name': g.get('name', f"Member_{g.get('id')}"),
+                        'state': g.get('subscription', {}).get('state')
+                    })
+                return members
+        except Exception as e:
+            logger.warning(f"Failed to fetch members: {e}")
+            return []
+
+    async def run_blog_backup(self, member_ids=None, members_cache=None):
+        """Run blog backup for selected members with parallel downloads.
+
+        Args:
+            member_ids: List of member IDs to backup. If None, backup all members.
+            members_cache: Pre-fetched member dict from interactive wizard to avoid duplicate fetch.
+        """
+        import aiohttp
+        from pyhako.blog import get_scraper
+        from pyhako.client import GROUP_CONFIG
+
+        display_name = GROUP_CONFIG[self.group].get("display_name", self.group.value)
+
+        async with aiohttp.ClientSession() as session:
+            scraper = get_scraper(self.group, session)
+
+            # Use cached members if available, otherwise fetch
+            if members_cache:
+                members = members_cache
+            else:
+                logger.info(get_string("blog_fetching_members"))
+                members = await scraper.get_members()
+
+            target_ids = member_ids if member_ids else list(members.keys())
+            
+            # Phase 1: Scan and collect all blog entries
+            logger.info(get_string("blog_scanning"))
+            all_tasks = []  # List of (entry, member_id, member_name)
+
+            with tqdm(total=len(target_ids), desc=get_string("blog_tqdm_scanning"), unit="member") as scan_pbar:
+                for m_id in target_ids:
+                    m_id = str(m_id)
+                    m_name = members.get(m_id, f"Member_{m_id}")
+                    scan_pbar.set_postfix_str(f"{m_name[:12]} (0 posts)")
+
+                    member_post_count = 0
+                    async for entry in scraper.get_blogs(m_id):
+                        all_tasks.append((entry, m_id, m_name))
+                        member_post_count += 1
+                        # Update postfix to show progress within member
+                        scan_pbar.set_postfix_str(f"{m_name[:12]} ({member_post_count} posts)")
+
+                    scan_pbar.update(1)
+            
+            if not all_tasks:
+                logger.warning(get_string("blog_no_blogs"))
+                return
+            
+            logger.info(get_string("blog_downloading"))
+            logger.info(get_string("blog_found_posts").format(len(all_tasks)))
+            
+            # Phase 2: Parallel download with Semaphore
+            sem = asyncio.Semaphore(20)  # 20 concurrent connections
+            
+            async def download_task(task_data, pbar):
+                entry, m_id, m_name = task_data
+                async with sem:
+                    await self._save_blog_html(session, entry, m_id, m_name, display_name)
+                    pbar.update(1)
+            
+            with tqdm(total=len(all_tasks), desc=get_string("blog_tqdm_downloading"), unit="post") as dl_pbar:
+                await asyncio.gather(*[download_task(t, dl_pbar) for t in all_tasks])
+
+    async def _save_blog_html(self, session, entry, member_id: str, member_name: str, display_name: str) -> Path:
+        """
+        Save a blog entry as HTML with downloaded images.
+        For CLI users who want human-readable offline viewing.
+        
+        Returns:
+            Path to the saved directory.
+        """
+        import aiofiles
+        
+        # Folder: output/{DisplayName}/blogs/{MemberName}/{Date}_{ID}/
+        safe_name = "".join(c for c in member_name if c.isalnum() or c in (' ', '_', '-', 'ぁ-んァ-ン一-龯')).strip()
+        if not safe_name:
+            safe_name = f"member_{member_id}"
+        date_str = entry.published_at.strftime("%Y%m%d")
+        dir_name = f"{date_str}_{entry.id}"
+        
+        base_dir = self.output_dir / display_name / "blogs" / safe_name / dir_name
+        base_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Download Images & rewrite URLs
+        content = entry.content
+        img_dir = base_dir / "images"
+        
+        if entry.images:
+            img_dir.mkdir(exist_ok=True)
+            
+            for idx, img_url in enumerate(entry.images):
+                ext = img_url.split('.')[-1]
+                if '?' in ext:
+                    ext = ext.split('?')[0]
+                img_name = f"img_{idx}.{ext}"
+                img_path = img_dir / img_name
+                local_path = f"./images/{img_name}"
+                
+                try:
+                    async with session.get(img_url) as resp:
+                        if resp.status == 200:
+                            data = await resp.read()
+                            async with aiofiles.open(img_path, 'wb') as f:
+                                await f.write(data)
+                            content = content.replace(img_url, local_path)
+                except Exception as e:
+                    logger.warning(f"Failed to download image {img_url}: {e}")
+
+        # Generate HTML for viewing
+        full_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{entry.title}</title>
+<style>
+body {{ font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; line-height: 1.6; }}
+img {{ max-width: 100%; height: auto; }}
+.date {{ color: #666; font-size: 0.9em; }}
+h1 {{ margin-bottom: 0.5em; }}
+</style>
+</head>
+<body>
+<h1>{entry.title}</h1>
+<div class="date">{entry.published_at.strftime("%Y-%m-%d %H:%M")}</div>
+<hr>
+{content}
+</body>
+</html>"""
+
+        async with aiofiles.open(base_dir / "index.html", 'w', encoding='utf-8') as f:
+            await f.write(full_html)
+        
+        return base_dir
+
+    async def _save_blog_json(self, session, entry, member_id: str, member_name: str, display_name: str) -> Path:
+        """
+        Save a blog entry as structured JSON for GUI app (HakoDesk).
+        Optimized for programmatic access, search indexing, and vector DB.
+        
+        Returns:
+            Path to the saved directory.
+        """
+        import aiofiles
+        from bs4 import BeautifulSoup
+        
+        # Folder: output/{DisplayName}/blogs/{MemberName}/{Date}_{ID}/
+        safe_name = "".join(c for c in member_name if c.isalnum() or c in (' ', '_', '-', 'ぁ-んァ-ン一-龯')).strip()
+        if not safe_name:
+            safe_name = f"member_{member_id}"
+        date_str = entry.published_at.strftime("%Y%m%d")
+        dir_name = f"{date_str}_{entry.id}"
+        
+        base_dir = self.output_dir / display_name / "blogs" / safe_name / dir_name
+        base_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Download Images & build resources list
+        content = entry.content
+        images_data = []
+        img_dir = base_dir / "images"
+        
+        if entry.images:
+            img_dir.mkdir(exist_ok=True)
+            
+            for idx, img_url in enumerate(entry.images):
+                ext = img_url.split('.')[-1]
+                if '?' in ext:
+                    ext = ext.split('?')[0]
+                img_name = f"img_{idx}.{ext}"
+                img_path = img_dir / img_name
+                local_path = f"./images/{img_name}"
+                
+                try:
+                    async with session.get(img_url) as resp:
+                        if resp.status == 200:
+                            data = await resp.read()
+                            async with aiofiles.open(img_path, 'wb') as f:
+                                await f.write(data)
+                            content = content.replace(img_url, local_path)
+                            images_data.append({
+                                "original_url": img_url,
+                                "local_path": local_path,
+                                "caption": ""
+                            })
+                except Exception as e:
+                    logger.warning(f"Failed to download image {img_url}: {e}")
+
+        # Extract plain text for search/vector DB
+        soup = BeautifulSoup(content, "html.parser")
+        plain_text = soup.get_text(separator="\n").strip()
+
+        # Structured JSON Schema
+        blog_data = {
+            "meta": {
+                "id": entry.id,
+                "member_id": member_id,
+                "member_name": member_name,
+                "title": entry.title,
+                "published_at": entry.published_at.isoformat(),
+                "url": entry.url,
+                "tags": []
+            },
+            "content": {
+                "html_raw": content,
+                "plain_text": plain_text
+            },
+            "resources": {
+                "images": images_data
+            }
+        }
+        
+        async with aiofiles.open(base_dir / "blog.json", 'w', encoding='utf-8') as f:
+            await f.write(json.dumps(blog_data, ensure_ascii=False, indent=2))
+        
+        return base_dir
+            
+    async def run(self, group_ids=None, member_ids=None, include_offline=False, mode='message', blog_members_cache=None):
+        if mode == 'blog':
+            await self.run_blog_backup(member_ids, members_cache=blog_members_cache)
+            return
+
         from pyhako.credentials import TokenManager
         
         # 1. LOAD CONFIG & TOKENS
@@ -347,8 +806,33 @@ class HakoCLI:
                     auth_dir=config.get('auth_dir')
                 )
                 
-                # Check auth
-                if not await self.client.refresh_access_token(session):
+                # Check auth (may raise SessionExpiredError)
+                try:
+                    auth_ok = await self.client.refresh_access_token(session)
+                except SessionExpiredError:
+                    # Session invalidated - show clean message and prompt re-login
+                    self.show_session_expired()
+                    await self.setup_wizard()
+                    # Reload config and re-init client
+                    config = self.load_config()
+                    token_data = tm.load_session(self.group.value)
+                    
+                    if not token_data or not token_data.get('access_token'):
+                        logger.error(get_string("run_setup_fail"))
+                        return
+                        
+                    self.client = Client(
+                       group=self.group,
+                       access_token=token_data.get('access_token'),
+                       refresh_token=token_data.get('refresh_token'),
+                       cookies=token_data.get('cookies'),
+                       app_id=config.get('x-talk-app-id'),
+                       user_agent=config.get('user-agent'),
+                       auth_dir=config.get('auth_dir')
+                    )
+                    auth_ok = True  # Fresh login, should be valid
+
+                if not auth_ok:
                      if not await self.client.fetch_json(session, "/groups", {"organization_id": 1}):
                           logger.warning(get_string("run_auth_expired"))
                           await self.setup_wizard()
@@ -404,7 +888,7 @@ class HakoCLI:
                             target_groups.append({'id': gid, 'name': str(gid)})
                 else:
                     # Use normal filtering for "scan all" mode
-                    target_groups = await self.client.get_groups(session, include_inactive)
+                    target_groups = await self.client.get_groups(session, include_inactive=include_offline)
 
                 if not target_groups:
                     logger.warning(get_string("run_no_groups"))
@@ -412,12 +896,14 @@ class HakoCLI:
 
                 logger.info(get_string("run_phase_1").strip())
                 tasks = []
-                for group in tqdm(target_groups, desc="Scanning Groups"):
+                for group in tqdm(target_groups, desc=get_string("run_tqdm_scanning")):
                     members = await self.client.get_members(session, group['id'])
                     if not members:
                         continue
                     if member_ids:
-                        members = [m for m in members if m['id'] in member_ids]
+                        # Ensure type compatibility (API IDs might be int vs CLI args int/str)
+                        target_str_ids = set(str(mid) for mid in member_ids)
+                        members = [m for m in members if str(m['id']) in target_str_ids]
                     for m in members:
                         tasks.append({'group': group, 'member': m})
                 
@@ -437,7 +923,7 @@ class HakoCLI:
                         await self.process_member(session, t, media_queue, pbar)
                         pbar.update(1)
 
-                pbar = tqdm(total=len(tasks), desc="Fetching Members", unit="member")
+                pbar = tqdm(total=len(tasks), desc=get_string("run_tqdm_fetching"), unit="member")
                 await asyncio.gather(*[worker(t, pbar) for t in tasks])
                 pbar.close()
 
@@ -471,6 +957,7 @@ def get_parser():
     parser.add_argument('--cleanup', action='store_true', help=get_string("help_cleanup"))
     parser.add_argument('--lang', type=str, choices=['en', 'ja', 'zh-TW', 'zh-CN', 'yue'], help=get_string("help_lang"))
     parser.add_argument('-v', '--verbose', action='store_true', help=get_string("help_verbose"))
+    parser.add_argument('--blog', action='store_true', help="Enable Blog Backup mode (all groups supported)")
     return parser
 
 def peek_language_from_argv() -> str:
@@ -480,7 +967,7 @@ def peek_language_from_argv() -> str:
             idx = sys.argv.index('--lang')
             if idx + 1 < len(sys.argv):
                 return sys.argv[idx + 1]
-    except:
+    except Exception:
         pass
     return None
 
@@ -489,20 +976,13 @@ def main():
     
     # A. Flag Peek
     lang = peek_language_from_argv()
-    
-    # B. Config Peek (Check ALL config files for lang)
+
+    # B. Global CLI Preferences
     if not lang:
         try:
-            for config_path in Path('.').glob('config_*.json'):
-                try:
-                    with open(config_path, encoding='utf-8') as f:
-                        cfg = json.load(f)
-                        if cfg.get('lang'):
-                            lang = cfg['lang']
-                            break
-                except:
-                    pass
-        except:
+            prefs = load_cli_prefs()
+            lang = prefs.get('lang')
+        except Exception:
             pass
 
     # C. System Detect
@@ -540,6 +1020,7 @@ def main():
     service_str = args.service
     output_dir = args.output
     include_offline = args.include_offline
+    mode = 'blog' if args.blog else 'message'
     
     # Parse group IDs (comma or space-separated)
     group_ids = []
@@ -553,18 +1034,36 @@ def main():
             member_ids.extend(parse_int_list(m))
 
     # Interactive Mode overrides
-    if args.interactive:
+    # Enable if explicitly requested OR implicitly if no service specified (and not cleanup)
+    if args.interactive or (not args.service and not args.cleanup):
         cli_dummy = HakoCLI() # Temp instance to run wizard
-        wizard_config = cli_dummy.run_interactive_wizard()
+        wizard_config = cli_dummy.run_interactive_wizard(force_lang=bool(args.lang))
         
         service_str = wizard_config.get('service', service_str)
         output_dir = wizard_config.get('output_dir', output_dir)
         include_offline = wizard_config.get('include_offline', include_offline)
+        mode = wizard_config.get('mode', mode)
+
         # Interactive wizard returns single group_id, convert to list
         wizard_group = wizard_config.get('group_id')
         if wizard_group:
             group_ids = [wizard_group]
-    
+        
+        # Members from wizard
+        # For 'blog', these are Member IDs.
+        # For 'message', these are Group/Subscription IDs.
+        w_members = wizard_config.get('members')
+        if w_members:
+            if mode == 'blog':
+                member_ids = w_members
+            else:
+                group_ids = w_members
+
+        # Blog members cache from wizard (avoids duplicate fetch)
+        blog_members_cache = wizard_config.get('_blog_members_cache')
+    else:
+        blog_members_cache = None
+
     # Defaults
     if not output_dir:
         output_dir = DEFAULT_OUTPUT
@@ -579,11 +1078,17 @@ def main():
         asyncio.run(cli.cleanup_wizard())
         return
 
+    # Check ToS before proceeding to ANY operation that accesses the service
+    if not cli.check_tos():
+        return
+
     try:
         asyncio.run(cli.run(
-            group_ids=group_ids if group_ids else None, 
-            member_ids=member_ids if member_ids else None, 
-            include_inactive=include_offline 
+            group_ids=group_ids if group_ids else None,
+            member_ids=member_ids if member_ids else None,
+            include_offline=include_offline,
+            mode=mode,
+            blog_members_cache=blog_members_cache
         ))
     except KeyboardInterrupt:
         logger.warning(get_string("run_interrupted"))

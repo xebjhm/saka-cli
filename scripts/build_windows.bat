@@ -93,7 +93,7 @@ popd
 echo.
 echo [5/5] Copying artifacts back...
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
-copy /Y "%WORKSPACE_CLI%\dist\pyhako-cli.exe" "%BUILD_DIR%\" >nul
+copy /Y "%WORKSPACE_CLI%\dist\pyhako-cli-windows.exe" "%BUILD_DIR%\" >nul
 echo      Artifact copied to %BUILD_DIR%
 
 popd
@@ -101,7 +101,7 @@ popd
 echo.
 echo ============================================
 echo  Build complete!
-echo  Executable: %BUILD_DIR%\pyhako-cli.exe
+echo  Executable: %BUILD_DIR%\pyhako-cli-windows.exe
 echo ============================================
 echo.
 REM Only pause if manually double-clicked (detection hard in bat, so removing for automation)

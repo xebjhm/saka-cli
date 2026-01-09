@@ -52,14 +52,22 @@ def main():
     
     # Determine output name
     if platform.system() == "Windows":
-        exe_name = "pyhako-cli.exe"
+        exe_name = "pyhako-cli-windows.exe"
+        original_name = "pyhako-cli.exe"
     else:
-        exe_name = "pyhako-cli"
+        exe_name = "pyhako-cli-linux"
+        original_name = "pyhako-cli"
     
+    # Rename/Move to standard name
+    original_path = dist_dir / original_name
     exe_path = dist_dir / exe_name
     
-    if exe_path.exists():
-        print(f"✅ Build successful!")
+    if original_path.exists():
+        # Rename if distinct
+        if original_path != exe_path:
+             shutil.move(str(original_path), str(exe_path))
+
+        print("✅ Build successful!")
         print(f"   Output: {exe_path}")
         print(f"   Size: {exe_path.stat().st_size / 1024 / 1024:.1f} MB")
         print()
@@ -67,7 +75,7 @@ def main():
         print(f"   1. Test: {exe_path} --help")
         print(f"   2. Run:  {exe_path} -s hinatazaka46")
     else:
-        print(f"❌ Expected output not found: {exe_path}")
+        print(f"❌ Expected output not found: {original_path}")
         sys.exit(1)
 
 

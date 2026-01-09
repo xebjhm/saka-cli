@@ -5,6 +5,29 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+## Disclaimer & Warnings
+
+> [!CAUTION]
+> **Use at your own risk.**
+> By using this software, you acknowledge and agree to the Terms of Service below.
+> **Automated Usage:** If you run this tool in an automated environment (CI/CD, Scripts), you are implicitly agreeing to these terms.
+
+### 規約 / Terms of Service Ref.
+
+The following are excerpts from the official Terms of Service. Please refer to the full text here:
+- [Nogizaka46](https://contact.nogizaka46.com/s/n46app/page/app_terms)
+- [Sakurazaka46](https://sakurazaka46.com/s/s46app/page/app_terms)
+- [Hinatazaka46](https://www.hinatazaka46.com/s/h46app/page/app_terms)
+
+**第3条（知的財産権）/ Article 3 (Intellectual Property)**
+> 3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。
+
+**第8条（禁止事項）/ Article 8 (Prohibited Acts)**
+> (16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為
+
+> (17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為
+
+
 ## Features
 - **Multi-Group Support**: Nogizaka46, Hinatazaka46, and Sakurazaka46.
 - **Resilient**: Auto-retry, persistent sessions, and robust error handling.
@@ -43,33 +66,50 @@ For power users and automation (CI/CD, Cron).
 Perform a one-time login for a specific group.
 ```bash
 # Setup for Nogizaka46 (Default)
-./pyhako-cli -s nogizaka46 --interactive
+./pyhako-cli-linux -s nogizaka46 --interactive
+# OR (Windows)
+.\pyhako-cli-windows.exe -s nogizaka46 --interactive
 
 # Setup for Hinatazaka46
-./pyhako-cli -s hinatazaka46 --interactive
+./pyhako-cli-linux -s hinatazaka46 --interactive
 ```
 
 ### 2. Scraping
 **Basic Sync (All subscribed members):**
 ```bash
-./pyhako-cli -s nogizaka46
+./pyhako-cli-linux -s nogizaka46
 ```
 
 **Include Expired/Inactive Members:**
 ```bash
-./pyhako-cli -s nogizaka46 --include-offline
+./pyhako-cli-linux -s nogizaka46 --include-offline
 ```
 
 **Target Specific Members:**
 ```bash
 # Sync specific Group ID and Member IDs
-./pyhako-cli -g 12 -m 34 56
+./pyhako-cli-linux -g 12 -m 34 56
 ```
 
 ### 3. Cleanup
 Remove all local authentication data and tokens.
 ```bash
-./pyhako-cli --cleanup
+./pyhako-cli-linux --cleanup
+```
+
+### 4. Official Blog Backup (Hinatazaka46 Only)
+Backup member blogs (HTML + Images) from the official website. No account/subscription required.
+
+**Interactive Mode:**
+Select `Hinatazaka46` -> `Official Blog Backup` in the wizard.
+
+**Batch Mode:**
+```bash
+# Backup specific members (ID from official site)
+./pyhako-cli-linux -s hinatazaka46 --blog -m 2 4 5
+
+# Backup ALL members
+./pyhako-cli-linux -s hinatazaka46 --blog
 ```
 
 ## Configuration
