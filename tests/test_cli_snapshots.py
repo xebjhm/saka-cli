@@ -1,9 +1,7 @@
 
 import pytest
-import sys
 from unittest.mock import patch
-from io import StringIO
-from pyhako_cli.cli import get_parser, HakoCLI, main
+from pyhako_cli.cli import get_parser, main
 
 def test_cli_help_snapshot(snapshot, capsys):
     """Test CLI help output consistency."""

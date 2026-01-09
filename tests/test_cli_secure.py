@@ -5,9 +5,10 @@ from unittest.mock import patch, AsyncMock
 def test_setup_saves_to_keyring():
     """Test that setup wizard saves credentials to TokenManager."""
     with patch('sys.argv', ['pyhako-cli', '--interactive']), \
-         patch('pyhako_cli.cli.HakoCLI') as MockCLI, \
-         patch('pyhako.credentials.TokenManager') as MockTM:
-         pass
+         patch('pyhako_cli.cli.HakoCLI'), \
+         patch('pyhako.credentials.TokenManager'):
+        # This test just verifies the patches can be applied
+        pass
 
 @pytest.mark.asyncio
 async def test_hako_cli_setup_secure():

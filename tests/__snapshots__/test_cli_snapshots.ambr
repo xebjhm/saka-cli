@@ -1,9 +1,10 @@
 # serializer version: 1
 # name: test_cli_help_snapshot
   '''
-  usage: pytest [-h] [-s {nogizaka46,sakurazaka46,hinatazaka46}] [-o OUTPUT]
-                [-i] [--include-offline] [-g GROUP] [-m [MEMBERS ...]]
-                [--cleanup] [--lang {en,ja,zh-TW,zh-CN,yue}] [-v]
+  usage: __main__.py [-h] [-s {nogizaka46,sakurazaka46,hinatazaka46}]
+                     [-o OUTPUT] [-i] [--include-offline] [-g GROUP]
+                     [-m [MEMBERS ...]] [--cleanup]
+                     [--lang {en,ja,zh-TW,zh-CN,yue}] [-v] [--blog]
   
   PyHako CLI - Sakamichi Series Media Scraper
   
@@ -23,6 +24,7 @@
     --lang {en,ja,zh-TW,zh-CN,yue}
                           Language (en, ja, zh-TW, zh-CN, yue)
     -v, --verbose         Enable verbose logging
+    --blog                Enable Blog Backup mode (Hinatazaka46 only)
   
   '''
 # ---
