@@ -96,7 +96,8 @@ def test_cli_interactive_flag():
             group_ids=[123],
             member_ids=None,
             include_offline=True,
-            mode='message'
+            mode='message',
+            blog_members_cache=None
         )
 
 def test_cli_lang_arg():
@@ -171,7 +172,8 @@ def test_cli_full_batch_mode():
             group_ids=[100],
             member_ids=[1, 2, 3],
             include_offline=True,
-            mode='message'
+            mode='message',
+            blog_members_cache=None
         )
 
 def test_cli_verbose():
@@ -214,8 +216,9 @@ def test_interactive_wizard_skips_lang_prompt_when_detected():
             config = cli.run_interactive_wizard()
 
         # Should NOT prompt for language (skipped), so fewer inputs than when English
-        # Language should be preserved as 'ja'
-        assert config.get('lang') == 'ja'
+        # Language is stored in global prefs, not in config anymore
+        # Verify language was preserved (not overwritten) by checking strings module
+        assert strings.get_language() == 'ja'
     finally:
         # Reset language
         strings.set_language(original_lang)
