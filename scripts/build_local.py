@@ -67,7 +67,7 @@ def main():
         if original_path != exe_path:
              shutil.move(str(original_path), str(exe_path))
 
-        print(f"✅ Build successful!")
+        print("✅ Build successful!")
         print(f"   Output: {exe_path}")
         print(f"   Size: {exe_path.stat().st_size / 1024 / 1024:.1f} MB")
         print()

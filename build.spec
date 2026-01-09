@@ -23,7 +23,7 @@ a = Analysis(
     ],
     hookspath=['.'],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['scripts/rthook_encoding.py'],
     excludes=[],
     noarchive=False,
 )
