@@ -27,10 +27,12 @@ packages = ["src/pyhako_cli"]
 [dependency-groups]
 dev = [
     "browser-cookie3>=0.20.1",
+    "mypy>=1.19.1",
     "pyinstaller>=6.17.0",
     "pytest>=8.3.5",
     "pytest-asyncio>=1.2.0",
     "pytest-cov>=7.0.0",
+    "ruff>=0.14.11",
     "syrupy>=4.9.1",
     "time-machine>=2.19.0",
 ]

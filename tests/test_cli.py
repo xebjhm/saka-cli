@@ -69,7 +69,7 @@ def test_cli_interactive_flag():
     """Test that --interactive triggers the wizard."""
     with patch('sys.argv', ['pyhako-cli', '--interactive']), \
          patch('pyhako_cli.cli.HakoCLI') as MockCLI:
-        
+
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
         # Mock the wizard to return specific config
@@ -79,47 +79,48 @@ def test_cli_interactive_flag():
             'group_id': 123,
             'service': 'nogizaka46'
         }
-        
+
         main()
-        
+
         # Should call wizard
         mock_instance.run_interactive_wizard.assert_called_once()
-        
+
         # Should initialize CLI with the wizard's output (and appropriate Group)
         # Note: We need to check if ScraperCLI was initialized with Group.NOGIZAKA46
         # Since we mock ScraperCLI class, we can check call args
         from pyhako import Group
         MockCLI.assert_called_with(output_dir='custom_out', group=Group.NOGIZAKA46)
-        
-        # Should run with wizard's config
+
+        # Should run with wizard's config (include_offline is the actual param name, mode is also passed)
         mock_instance.run.assert_called_once_with(
             group_ids=[123],
             member_ids=None,
-            include_inactive=True
+            include_offline=True,
+            mode='message'
         )
 
 def test_cli_lang_arg():
     """Test that --lang flag sets the language."""
     from pyhako_cli import strings
-    
-    with patch('sys.argv', ['pyhako-cli', '--lang', 'ja']), \
+
+    # Need to also provide -s to skip interactive mode (which would need wizard mock)
+    with patch('sys.argv', ['pyhako-cli', '--lang', 'ja', '-s', 'nogizaka46']), \
          patch('pyhako_cli.cli.HakoCLI') as MockCLI:
-        
+
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
-        
+
         main()
-        
-        # Verify language was set. 
+
+        # Verify language was set.
         # Since string module is imported, we can check its internal state or check if get_string returns ja strings.
         assert strings._CURRENT_LANG == 'ja'
-        
+
         # Verify reset for other tests
         strings.set_language('en')
 
 def test_cli_lang_detection():
     """Test that language detection works (mocking locale)."""
-    from pyhako_cli import strings
     from pyhako_cli.cli import detect_system_language
     
     # Test Japanese detection
@@ -145,31 +146,32 @@ def test_cli_full_batch_mode():
     """Test batch mode with ALL optional arguments (group, members, offline)."""
     # Args: -o out -s sakurazaka46 -g 100 -m 1 2 3 --include-offline
     argv = [
-        'pyhako-cli', 
-        '-o', 'custom_out', 
-        '-s', 'sakurazaka46', 
-        '-g', '100', 
-        '-m', '1', '2', '3', 
+        'pyhako-cli',
+        '-o', 'custom_out',
+        '-s', 'sakurazaka46',
+        '-g', '100',
+        '-m', '1', '2', '3',
         '--include-offline'
     ]
-    
+
     with patch('sys.argv', argv), \
          patch('pyhako_cli.cli.HakoCLI') as MockCLI:
-        
+
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
-        
+
         main()
-        
+
         from pyhako import Group
         # Check Init
         MockCLI.assert_called_with(output_dir='custom_out', group=Group.SAKURAZAKA46)
-        
-        # Check Run Args
+
+        # Check Run Args (include_offline is the correct param, mode is always passed)
         mock_instance.run.assert_called_once_with(
             group_ids=[100],
             member_ids=[1, 2, 3],
-            include_inactive=True
+            include_offline=True,
+            mode='message'
         )
 
 def test_cli_verbose():
@@ -190,24 +192,27 @@ def test_interactive_wizard_skips_lang_prompt_when_detected():
     """Test that interactive wizard skips lang prompt when language was pre-detected (non-English)."""
     from pyhako_cli.cli import HakoCLI
     from pyhako_cli import strings
-    
+
     # Set language to Japanese (simulating auto-detection from system/config)
     original_lang = strings.get_language()
     strings.set_language('ja')
-    
+
     try:
         cli = HakoCLI()
-        
+
         # Mock input to track what prompts are shown
         inputs_given = []
         def mock_input(prompt=""):
             inputs_given.append(prompt)
+            # Return 'y' for ToS prompt, empty for everything else
+            if 'y/N' in prompt or '[y/N]' in prompt:
+                return 'y'
             return ""  # Default for all prompts
-        
+
         with patch('builtins.input', side_effect=mock_input), \
              patch('builtins.print'):
             config = cli.run_interactive_wizard()
-        
+
         # Should NOT prompt for language (skipped), so fewer inputs than when English
         # Language should be preserved as 'ja'
         assert config.get('lang') == 'ja'

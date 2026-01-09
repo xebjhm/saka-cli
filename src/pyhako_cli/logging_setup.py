@@ -36,7 +36,6 @@ def setup_logging(verbose: bool = False):
     
     # Define the renderers we want (Console vs JSON)
     # Logic: If JSON_LOGS=1 -> JSON. Else -> Console.
-    import os
     use_json = bool(os.environ.get("JSON_LOGS"))
     timestamp_fmt = "iso" if use_json else "%H:%M:%S"
     
@@ -84,9 +83,7 @@ def setup_logging(verbose: bool = False):
                 structlog.contextvars.merge_contextvars,
                 structlog.stdlib.add_logger_name,
                 structlog.stdlib.add_log_level,
-                structlog.stdlib.add_log_level,
                 structlog.processors.TimeStamper(fmt=timestamp_fmt),
-                structlog.processors.StackInfoRenderer(),
                 structlog.processors.StackInfoRenderer(),
                 structlog.dev.set_exc_info,
                 structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
@@ -96,8 +93,8 @@ def setup_logging(verbose: bool = False):
             wrapper_class=structlog.stdlib.BoundLogger,
             cache_logger_on_first_use=True,
         )
-    except:
-        pass # Ignore if already configured/immutable issues, as Handler handles rendering.
+    except Exception:
+        pass  # Ignore if already configured/immutable issues, as Handler handles rendering.
 
     # 3. Third-party Library Noise Reduction
     # Unless verbose, silence library info logs
