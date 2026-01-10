@@ -91,7 +91,7 @@ Perform a one-time login for a specific group.
 **Target Specific Members:**
 ```bash
 # Sync specific Group ID and Member IDs
-./pyhako-cli-linux -g 12 -m 34 56
+./pyhako-cli-linux -g 12 -m 34,56
 ```
 
 ### 3. Cleanup
@@ -114,7 +114,7 @@ Select your group -> `Official Blog Backup` in the wizard.
 **Batch Mode:**
 ```bash
 # Backup specific members (ID from official site)
-./pyhako-cli-linux -s nogizaka46 --blog -m member_code1 member_code2
+./pyhako-cli-linux -s nogizaka46 --blog -m member_code1,member_code2
 
 # Backup ALL members for a group
 ./pyhako-cli-linux -s hinatazaka46 --blog
