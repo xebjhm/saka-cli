@@ -560,7 +560,9 @@ class HakoCLI:
 
         display_name = GROUP_CONFIG[self.group].get("display_name", self.group.value)
 
-        async with aiohttp.ClientSession() as session:
+        # Higher connection limit for parallel scanning
+        connector = aiohttp.TCPConnector(limit=30)
+        async with aiohttp.ClientSession(connector=connector) as session:
             scraper = get_scraper(self.group, session)
 
             # Use cached members if available, otherwise fetch
@@ -571,42 +573,58 @@ class HakoCLI:
                 members = await scraper.get_members()
 
             target_ids = member_ids if member_ids else list(members.keys())
-            
-            # Phase 1: Scan and collect all blog entries
+
+            # Phase 1: Parallel scan - collect all blog entries from all members concurrently
+            # Use same policy as message mode: initial 20 concurrent, can scale up to 5 more
             logger.info(get_string("blog_scanning"))
             all_tasks = []  # List of (entry, member_id, member_name)
+            member_counts = {}  # Track post count per member for progress display
+
+            scan_sem = asyncio.Semaphore(20)  # 20 concurrent member scans
+
+            async def scan_member(m_id: str, m_name: str, pbar):
+                """Scan a single member's blogs and collect entries."""
+                async with scan_sem:
+                    member_entries = []
+                    post_count = 0
+                    async for entry in scraper.get_blogs(m_id):
+                        member_entries.append((entry, m_id, m_name))
+                        post_count += 1
+                    member_counts[m_id] = post_count
+                    pbar.update(1)
+                    return member_entries
 
             with tqdm(total=len(target_ids), desc=get_string("blog_tqdm_scanning"), unit="member") as scan_pbar:
+                # Prepare scan tasks for all members
+                scan_tasks = []
                 for m_id in target_ids:
                     m_id = str(m_id)
                     m_name = members.get(m_id, f"Member_{m_id}")
-                    scan_pbar.set_postfix_str(f"{m_name[:12]} (0 posts)")
+                    scan_tasks.append(scan_member(m_id, m_name, scan_pbar))
 
-                    member_post_count = 0
-                    async for entry in scraper.get_blogs(m_id):
-                        all_tasks.append((entry, m_id, m_name))
-                        member_post_count += 1
-                        # Update postfix to show progress within member
-                        scan_pbar.set_postfix_str(f"{m_name[:12]} ({member_post_count} posts)")
+                # Run all scans in parallel
+                results = await asyncio.gather(*scan_tasks)
 
-                    scan_pbar.update(1)
-            
+                # Flatten results
+                for member_entries in results:
+                    all_tasks.extend(member_entries)
+
             if not all_tasks:
                 logger.warning(get_string("blog_no_blogs"))
                 return
-            
+
             logger.info(get_string("blog_downloading"))
             logger.info(get_string("blog_found_posts").format(len(all_tasks)))
-            
+
             # Phase 2: Parallel download with Semaphore
-            sem = asyncio.Semaphore(20)  # 20 concurrent connections
-            
+            dl_sem = asyncio.Semaphore(20)  # 20 concurrent downloads
+
             async def download_task(task_data, pbar):
                 entry, m_id, m_name = task_data
-                async with sem:
+                async with dl_sem:
                     await self._save_blog_html(session, entry, m_id, m_name, display_name)
                     pbar.update(1)
-            
+
             with tqdm(total=len(all_tasks), desc=get_string("blog_tqdm_downloading"), unit="post") as dl_pbar:
                 await asyncio.gather(*[download_task(t, dl_pbar) for t in all_tasks])
 
@@ -957,7 +975,7 @@ def get_parser():
     parser.add_argument('--cleanup', action='store_true', help=get_string("help_cleanup"))
     parser.add_argument('--lang', type=str, choices=['en', 'ja', 'zh-TW', 'zh-CN', 'yue'], help=get_string("help_lang"))
     parser.add_argument('-v', '--verbose', action='store_true', help=get_string("help_verbose"))
-    parser.add_argument('--blog', action='store_true', help="Enable Blog Backup mode (all groups supported)")
+    parser.add_argument('--blog', action='store_true', help=get_string("help_blog"))
     return parser
 
 def peek_language_from_argv() -> str:
