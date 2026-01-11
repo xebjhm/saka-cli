@@ -2,9 +2,12 @@
 import pytest
 from unittest.mock import patch
 from pyhako_cli.cli import get_parser, main
+from pyhako_cli.strings import set_language
 
 def test_cli_help_snapshot(snapshot, capsys):
     """Test CLI help output consistency."""
+    # Ensure consistent language for snapshot testing
+    set_language('en')
     parser = get_parser()
     parser.print_help()
     captured = capsys.readouterr()
@@ -31,9 +34,12 @@ async def test_setup_wizard_prompts(snapshot):
     # This is tricky because interactive wizard prints to stdout.
     # We'll use a mock customized to print the prompt it received?
     # Or just capture the side-effects strings.
-    
-    from pyhako_cli.strings import get_string
-    
+
+    from pyhako_cli.strings import get_string, set_language
+
+    # Ensure consistent language for snapshot testing
+    set_language('en')
+
     # Just snapshot the prompt strings to ensure they don't drift unintendedly
     prompts = {
         "welcome": get_string("welcome"),

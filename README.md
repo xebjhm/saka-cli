@@ -30,8 +30,11 @@ The following are excerpts from the official Terms of Service. Please refer to t
 
 ## Features
 - **Multi-Group Support**: Nogizaka46, Hinatazaka46, and Sakurazaka46.
+- **Message Backup**: Download messages, images, videos, and voice clips.
+- **Blog Backup**: Backup official member blogs (HTML + images) for all groups.
 - **Resilient**: Auto-retry, persistent sessions, and robust error handling.
 - **Secure**: Local token storage (System Keyring).
+- **Multi-Language**: English, Japanese, Traditional Chinese, and Simplified Chinese.
 
 ## Installation
 
@@ -88,7 +91,7 @@ Perform a one-time login for a specific group.
 **Target Specific Members:**
 ```bash
 # Sync specific Group ID and Member IDs
-./pyhako-cli-linux -g 12 -m 34 56
+./pyhako-cli-linux -g 12 -m 34,56
 ```
 
 ### 3. Cleanup
@@ -97,19 +100,27 @@ Remove all local authentication data and tokens.
 ./pyhako-cli-linux --cleanup
 ```
 
-### 4. Official Blog Backup (Hinatazaka46 Only)
+### 4. Official Blog Backup (All Groups)
 Backup member blogs (HTML + Images) from the official website. No account/subscription required.
 
+**Supported Groups:**
+- Nogizaka46
+- Sakurazaka46
+- Hinatazaka46
+
 **Interactive Mode:**
-Select `Hinatazaka46` -> `Official Blog Backup` in the wizard.
+Select your group -> `Official Blog Backup` in the wizard.
 
 **Batch Mode:**
 ```bash
 # Backup specific members (ID from official site)
-./pyhako-cli-linux -s hinatazaka46 --blog -m 2 4 5
+./pyhako-cli-linux -s nogizaka46 --blog -m member_code1,member_code2
 
-# Backup ALL members
+# Backup ALL members for a group
 ./pyhako-cli-linux -s hinatazaka46 --blog
+
+# Sakurazaka46 example
+./pyhako-cli-linux -s sakurazaka46 --blog
 ```
 
 ## Configuration

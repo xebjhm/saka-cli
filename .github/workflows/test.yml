@@ -1,11 +1,10 @@
-
 name: Test
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [main, dev]
   pull_request:
-    branches: [ master, main ]
+    branches: [main, dev]
 
 jobs:
   test:
@@ -15,29 +14,16 @@ jobs:
         python-version: ["3.11", "3.12"]
 
     steps:
-    - name: Checkout PyHakoCLI
-      uses: actions/checkout@v4
-      with:
-        path: PyHakoCLI
-
-    - name: Checkout PyHako (Core)
-      uses: actions/checkout@v4
-      with:
-        repository: xebjhm/PyHako
-        path: PyHako
+    - uses: actions/checkout@v4
 
     - name: Install uv
       uses: astral-sh/setup-uv@v5
 
-
     - name: Set up Python ${{ matrix.python-version }}
-      working-directory: PyHakoCLI
       run: uv python install ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      working-directory: PyHakoCLI
-      run: uv sync --all-extras --dev
+    - name: Install dependencies (using PyPI pyhako)
+      run: uv sync --all-extras --dev --no-sources
 
     - name: Run Tests
-      working-directory: PyHakoCLI
-      run: uv run pytest
+      run: uv run --no-sources pytest

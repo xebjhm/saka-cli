@@ -96,7 +96,8 @@ STRINGS = {
         "help_members": "Filter by Member IDs",
         "help_cleanup": "Remove auth data and config files",
         "help_lang": "Language (en, ja, zh-TW, zh-CN, yue)",
-        "help_verbose": "Enable verbose logging"
+        "help_verbose": "Enable verbose logging",
+        "help_blog": "Enable Blog Backup mode (all groups supported)"
     },
     'ja': {
         "tos_title": "=== 利用規約 ===",
@@ -192,7 +193,8 @@ STRINGS = {
         "help_members": "メンバーIDでフィルタ",
         "help_cleanup": "認証データと設定を削除",
         "help_lang": "言語 (en, ja, zh-TW, zh-CN, yue)",
-        "help_verbose": "詳細ログを有効化"
+        "help_verbose": "詳細ログを有効化",
+        "help_blog": "ブログバックアップモードを有効化 (全グループ対応)"
     },
     'zh-TW': {
         "tos_title": "=== 服務條款 ===",
@@ -288,7 +290,8 @@ STRINGS = {
         "help_members": "依 Member IDs 過濾",
         "help_cleanup": "移除驗證資料與設定檔",
         "help_lang": "語言 (en, ja, zh-TW, zh-CN, yue)",
-        "help_verbose": "啟用詳細日誌"
+        "help_verbose": "啟用詳細日誌",
+        "help_blog": "啟用部落格備份模式 (全團體支援)"
     },
     'zh-CN': {
         "tos_title": "=== 服务条款 ===",
@@ -384,7 +387,8 @@ STRINGS = {
         "help_members": "按 Member IDs 过滤",
         "help_cleanup": "删除验证数据和配置文件",
         "help_lang": "语言 (en, ja, zh-TW, zh-CN, yue)",
-        "help_verbose": "启用详细日志"
+        "help_verbose": "启用详细日志",
+        "help_blog": "启用博客备份模式 (全团体支持)"
     },
     'yue': {
         "tos_title": "=== 服務條款 ===",
@@ -480,7 +484,8 @@ STRINGS = {
         "help_members": "跟 Member IDs 過濾",
         "help_cleanup": "移除驗證資料同 Config",
         "help_lang": "語言 (en, ja, zh-TW, zh-CN, yue)",
-        "help_verbose": "開詳細 Log"
+        "help_verbose": "開詳細 Log",
+        "help_blog": "開 Blog 備份模式 (全 Group 都 Support)"
     }
 }
 
