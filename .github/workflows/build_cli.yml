@@ -18,16 +18,7 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout PyHakoCLI
-        uses: actions/checkout@v4
-        with:
-          path: PyHakoCLI
-
-      - name: Checkout PyHako Core
-        uses: actions/checkout@v4
-        with:
-          repository: xebjhm/PyHako
-          path: PyHako
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -37,16 +28,13 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Install dependencies
-        working-directory: PyHakoCLI
-        run: uv sync
+      - name: Install dependencies (using PyPI pyhako)
+        run: uv sync --no-sources
 
       - name: Build with PyInstaller
-        working-directory: PyHakoCLI
-        run: uv run pyinstaller build.spec
+        run: uv run --no-sources pyinstaller build.spec
 
       - name: Smoke Test Binary
-        working-directory: PyHakoCLI
         shell: bash
         run: |
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
@@ -60,10 +48,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pyhako-cli-${{ matrix.os }}
-          path: PyHakoCLI/dist/pyhako-cli*
+          path: dist/pyhako-cli*
 
       - name: Publish Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: PyHakoCLI/dist/pyhako-cli*
+          files: dist/pyhako-cli*
