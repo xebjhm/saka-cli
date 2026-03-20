@@ -5,14 +5,16 @@ import json
 import traceback
 import sys
 import structlog
+from collections import defaultdict
 from pathlib import Path
+from typing import Optional
 from tqdm import tqdm
 from datetime import datetime, timezone
 import locale
-from pyhako import Client, BrowserAuth, SyncManager, Group, get_auth_dir, get_user_data_dir, SessionExpiredError
+from pysaka import Client, BrowserAuth, SyncManager, Group, get_auth_dir, get_user_data_dir, SessionExpiredError
 
-from pyhako_cli.logging_setup import setup_logging
-from pyhako_cli.strings import get_string, set_language, get_language
+from saka_cli.logging_setup import setup_logging
+from saka_cli.strings import get_string, set_language, get_language
 
 # Logger initialized in main()
 logger = None # Placeholder
@@ -88,12 +90,12 @@ def parse_int_list(value: str) -> list[int]:
         return [int(x.strip()) for x in value.split(',') if x.strip()]
     return [int(value)]
 
-class HakoCLI:
+class SakaCLI:
     def __init__(self, output_dir: str = DEFAULT_OUTPUT, group: Group = Group.HINATAZAKA46):
         self.output_dir = Path(output_dir)
         self.group = group
         # Store config in user data directory for consistent location across platforms
-        # Windows: %APPDATA%/pyhako, macOS: ~/Library/Application Support/pyhako, Linux: ~/.local/share/pyhako
+        # Windows: %APPDATA%/pysaka, macOS: ~/Library/Application Support/pysaka, Linux: ~/.local/share/pysaka
         self.config_file = get_user_data_dir() / f"config_{group.value}.json"
         self.client = None
         self.manager = None 
@@ -221,7 +223,7 @@ class HakoCLI:
         # [Fix] Check ToS immediately after service selection (before proceeding)
         # We need to check the config for the SELECTED service, not the default one.
         temp_group = Group(config['service'])
-        temp_cli = HakoCLI(group=temp_group)
+        temp_cli = SakaCLI(group=temp_group)
         if not temp_cli.check_tos():
              sys.exit(0) # Exit if declined in wizard
 
@@ -241,7 +243,7 @@ class HakoCLI:
         if mode == 'blog':
              # Blog Flow
              print(get_string("blog_fetching_members"))
-             blog_cli = HakoCLI(group=Group(config['service']))
+             blog_cli = SakaCLI(group=Group(config['service']))
              members = asyncio.run(blog_cli.fetch_blog_members())
 
              print(get_string("blog_select_members"))
@@ -270,7 +272,7 @@ class HakoCLI:
 
         # 3. Fetch and display subscribed members
         print(get_string("msg_fetching_members"))
-        msg_cli = HakoCLI(group=Group(config['service']))
+        msg_cli = SakaCLI(group=Group(config['service']))
         try:
             members = asyncio.run(msg_cli.fetch_msg_members(config['include_offline']))
         except SessionExpiredError:
@@ -281,7 +283,7 @@ class HakoCLI:
                 
                 # Re-initialize client to pick up the newly saved credentials from storage
                 # This ensures we have a clean state with the fresh token/cookies
-                msg_cli = HakoCLI(group=Group(config['service']))
+                msg_cli = SakaCLI(group=Group(config['service']))
                 
                 # Retry fetching members
                 members = asyncio.run(msg_cli.fetch_msg_members(config['include_offline']))
@@ -351,8 +353,8 @@ class HakoCLI:
                 
         # Remove ALL keys from Keyring
         try:
-            from pyhako.credentials import TokenManager
-            from pyhako.client import Group
+            from pysaka.credentials import TokenManager
+            from pysaka.client import Group
             
             cleaned_tokens = 0
             # Iterate over all defined groups in the generic lib
@@ -458,7 +460,7 @@ class HakoCLI:
         if creds:
              # SAVE TO KEYRING / TOKEN MANAGER
             try:
-                from pyhako.credentials import TokenManager
+                from pysaka.credentials import TokenManager
                 tm = TokenManager() 
                 tm.save_session(
                     self.group.value, 
@@ -499,7 +501,7 @@ class HakoCLI:
     async def fetch_blog_members(self) -> dict[str, str]:
         """Fetch available blog members from the official site."""
         import aiohttp
-        from pyhako.blog import get_scraper
+        from pysaka.blog import get_scraper
 
         async with aiohttp.ClientSession() as session:
             scraper = get_scraper(self.group, session)
@@ -514,7 +516,7 @@ class HakoCLI:
             List of group dicts with 'id' and 'name' (member info).
         """
         import aiohttp
-        from pyhako.credentials import TokenManager
+        from pysaka.credentials import TokenManager
         
         config = self.load_config()
         if not config.get('tos_agreed'):
@@ -533,6 +535,7 @@ class HakoCLI:
             )
             
             async with aiohttp.ClientSession() as session:
+                assert self.client is not None
                 groups = await self.client.get_groups(session, include_inactive=include_offline)
                 # Extract member info: id, name, and subscription state
                 members = []
@@ -544,7 +547,8 @@ class HakoCLI:
                     })
                 return members
         except Exception as e:
-            logger.warning(f"Failed to fetch members: {e}")
+            if logger:
+                logger.warning(f"Failed to fetch members: {e}")
             return []
 
     async def run_blog_backup(self, member_ids=None, members_cache=None):
@@ -555,8 +559,8 @@ class HakoCLI:
             members_cache: Pre-fetched member dict from interactive wizard to avoid duplicate fetch.
         """
         import aiohttp
-        from pyhako.blog import get_scraper
-        from pyhako.client import GROUP_CONFIG
+        from pysaka.blog import get_scraper
+        from pysaka.client import GROUP_CONFIG
 
         display_name = GROUP_CONFIG[self.group].get("display_name", self.group.value)
 
@@ -636,8 +640,8 @@ class HakoCLI:
         Returns:
             Path to the saved directory.
         """
-        import aiofiles
-        
+        import aiofiles  # type: ignore[import-untyped]
+
         # Folder: output/{DisplayName}/blogs/{MemberName}/{Date}_{ID}/
         safe_name = "".join(c for c in member_name if c.isalnum() or c in (' ', '_', '-', 'ぁ-んァ-ン一-龯')).strip()
         if not safe_name:
@@ -671,7 +675,8 @@ class HakoCLI:
                                 await f.write(data)
                             content = content.replace(img_url, local_path)
                 except Exception as e:
-                    logger.warning(f"Failed to download image {img_url}: {e}")
+                    if logger:
+                        logger.warning(f"Failed to download image {img_url}: {e}")
 
         # Generate HTML for viewing
         full_html = f"""<!DOCTYPE html>
@@ -701,7 +706,7 @@ h1 {{ margin-bottom: 0.5em; }}
 
     async def _save_blog_json(self, session, entry, member_id: str, member_name: str, display_name: str) -> Path:
         """
-        Save a blog entry as structured JSON for GUI app (HakoDesk).
+        Save a blog entry as structured JSON for GUI app (SakaDesk).
         Optimized for programmatic access, search indexing, and vector DB.
         
         Returns:
@@ -749,7 +754,8 @@ h1 {{ margin-bottom: 0.5em; }}
                                 "caption": ""
                             })
                 except Exception as e:
-                    logger.warning(f"Failed to download image {img_url}: {e}")
+                    if logger:
+                        logger.warning(f"Failed to download image {img_url}: {e}")
 
         # Extract plain text for search/vector DB
         soup = BeautifulSoup(content, "html.parser")
@@ -785,7 +791,7 @@ h1 {{ margin-bottom: 0.5em; }}
             await self.run_blog_backup(member_ids, members_cache=blog_members_cache)
             return
 
-        from pyhako.credentials import TokenManager
+        from pysaka.credentials import TokenManager
         
         # 1. LOAD CONFIG & TOKENS
         config = self.load_config()
@@ -914,13 +920,20 @@ h1 {{ margin-bottom: 0.5em; }}
 
                 logger.info(get_string("run_phase_1").strip())
                 tasks = []
-                for group in tqdm(target_groups, desc=get_string("run_tqdm_scanning")):
-                    members = await self.client.get_members(session, group['id'])
+
+                # Fetch members for all groups in parallel
+                async def fetch_group_members(group):
+                    return group, await self.client.get_members(session, group['id'])
+
+                group_results = await asyncio.gather(*[
+                    fetch_group_members(g) for g in target_groups
+                ])
+
+                target_str_ids = set(str(mid) for mid in member_ids) if member_ids else None
+                for group, members in group_results:
                     if not members:
                         continue
-                    if member_ids:
-                        # Ensure type compatibility (API IDs might be int vs CLI args int/str)
-                        target_str_ids = set(str(mid) for mid in member_ids)
+                    if target_str_ids:
                         members = [m for m in members if str(m['id']) in target_str_ids]
                     for m in members:
                         tasks.append({'group': group, 'member': m})
@@ -930,19 +943,51 @@ h1 {{ margin-bottom: 0.5em; }}
                 # Setup Output
                 self.output_dir.mkdir(parents=True, exist_ok=True)
 
-                # Phase 2: Metadata (Parallel)
+                # Phase 2: Metadata (Group-Level Timeline Fetch)
+                # Fetch timeline once per group, distribute to all members
                 logger.info(get_string("run_phase_2"))
                 media_queue = []
-                
-                sem = asyncio.Semaphore(5) # Concurrency Limit
-                
-                async def worker(t, pbar):
+
+                tasks_by_group: dict[int, list] = defaultdict(list)
+                for t in tasks:
+                    tasks_by_group[t['group']['id']].append(t)
+
+                sem = asyncio.Semaphore(5)
+
+                async def sync_group(gid, group_tasks, pbar):
                     async with sem:
-                        await self.process_member(session, t, media_queue, pbar)
-                        pbar.update(1)
+                        # Find minimum last_id across all members in this group
+                        since_ids = [
+                            self.manager.get_last_id(gid, t['member']['id'])
+                            for t in group_tasks
+                        ]
+                        min_since_id = None if any(s is None for s in since_ids) else min(since_ids)
+
+                        # ONE API call for the entire group
+                        all_messages = await self.manager.client.get_messages(
+                            session, gid, since_id=min_since_id
+                        )
+
+                        # Process each member using pre-fetched data
+                        for t in group_tasks:
+                            async def on_progress(date_str, count, name=t['member']['name']):
+                                pbar.set_postfix_str(f"Latest: {name} ({count})")
+
+                            await self.manager.sync_member(
+                                session,
+                                t['group'],
+                                t['member'],
+                                media_queue,
+                                progress_callback=on_progress,
+                                prefetched_messages=all_messages,
+                            )
+                            pbar.update(1)
 
                 pbar = tqdm(total=len(tasks), desc=get_string("run_tqdm_fetching"), unit="member")
-                await asyncio.gather(*[worker(t, pbar) for t in tasks])
+                await asyncio.gather(*[
+                    sync_group(gid, gt, pbar)
+                    for gid, gt in tasks_by_group.items()
+                ])
                 pbar.close()
 
                 # Phase 3: Media
@@ -978,7 +1023,7 @@ def get_parser():
     parser.add_argument('--blog', action='store_true', help=get_string("help_blog"))
     return parser
 
-def peek_language_from_argv() -> str:
+def peek_language_from_argv() -> Optional[str]:
     """Manual peek at argv to set language before argparse runs."""
     try:
         if '--lang' in sys.argv:
@@ -1054,7 +1099,7 @@ def main():
     # Interactive Mode overrides
     # Enable if explicitly requested OR implicitly if no service specified (and not cleanup)
     if args.interactive or (not args.service and not args.cleanup):
-        cli_dummy = HakoCLI() # Temp instance to run wizard
+        cli_dummy = SakaCLI() # Temp instance to run wizard
         wizard_config = cli_dummy.run_interactive_wizard(force_lang=bool(args.lang))
         
         service_str = wizard_config.get('service', service_str)
@@ -1090,7 +1135,7 @@ def main():
         
     target_group = Group(service_str)
 
-    cli = HakoCLI(output_dir=output_dir, group=target_group)
+    cli = SakaCLI(output_dir=output_dir, group=target_group)
     
     if args.cleanup:
         asyncio.run(cli.cleanup_wizard())

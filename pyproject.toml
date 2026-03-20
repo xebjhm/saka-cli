@@ -3,26 +3,26 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pyhako-cli"
-version = "0.1.1"
-description = "CLI for PyHako"
+name = "saka-cli"
+version = "0.1.0"
+description = "CLI for pysaka"
 requires-python = ">=3.9"
 dependencies = [
     "tqdm>=4.66.0",
     "aiofiles>=23.0.0",
-    "pyhako>=0.1.1",
+    "pysaka>=0.1.1",
     "structlog>=24.1.0",
     "keyrings-alt>=5.0.2",
 ]
 
 [tool.uv.sources]
-pyhako = { path = "../PyHako", editable = true }
+pysaka = { path = "../pysaka", editable = true }
 
 [project.scripts]
-pyhako-cli = "pyhako_cli.cli:main"
+saka-cli = "saka_cli.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/pyhako_cli"]
+packages = ["src/saka_cli"]
 
 [dependency-groups]
 dev = [
@@ -36,3 +36,10 @@ dev = [
     "syrupy>=4.9.1",
     "time-machine>=2.19.0",
 ]
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+warn_return_any = false
+check_untyped_defs = false
+disallow_untyped_defs = false

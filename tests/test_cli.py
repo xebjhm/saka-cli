@@ -1,26 +1,26 @@
 import pytest
 from unittest.mock import patch, AsyncMock
-from pyhako_cli.cli import main
+from saka_cli.cli import main
 
 @pytest.fixture(autouse=True)
 def mock_dependencies():
-    with patch('pyhako_cli.cli.setup_logging'), \
-         patch('pyhako_cli.cli.Client'), \
-         patch('pyhako_cli.cli.SyncManager'), \
-         patch('pyhako_cli.cli.BrowserAuth'):
+    with patch('saka_cli.cli.setup_logging'), \
+         patch('saka_cli.cli.Client'), \
+         patch('saka_cli.cli.SyncManager'), \
+         patch('saka_cli.cli.BrowserAuth'):
         yield
 
 def test_cli_help():
     """Test that the CLI can run --help without error."""
-    with patch('sys.argv', ['pyhako-cli', '--help']):
+    with patch('sys.argv', ['saka-cli', '--help']):
         with pytest.raises(SystemExit) as e:
             main()
         assert e.value.code == 0
 
 def test_cli_no_args_triggers_interactive():
     """Test that no args results in interactive mode."""
-    with patch('sys.argv', ['pyhako-cli']), \
-         patch('pyhako_cli.cli.HakoCLI') as MockCLI:
+    with patch('sys.argv', ['saka-cli']), \
+         patch('saka_cli.cli.SakaCLI') as MockCLI:
         
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
@@ -36,8 +36,8 @@ def test_cli_no_args_triggers_interactive():
 
 def test_cli_batch_mode():
     """Test explicit batch mode execution."""
-    with patch('sys.argv', ['pyhako-cli', '-o', 'outdir', '-s', 'nogizaka46']), \
-         patch('pyhako_cli.cli.HakoCLI') as MockCLI:
+    with patch('sys.argv', ['saka-cli', '-o', 'outdir', '-s', 'nogizaka46']), \
+         patch('saka_cli.cli.SakaCLI') as MockCLI:
         
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
@@ -47,7 +47,7 @@ def test_cli_batch_mode():
         # Should NOT call wizard
         mock_instance.run_interactive_wizard.assert_not_called()
         
-        from pyhako import Group
+        from pysaka import Group
         # Should initialize CLI with passed args
         MockCLI.assert_called_with(output_dir='outdir', group=Group.NOGIZAKA46)
         # Should run
@@ -55,8 +55,8 @@ def test_cli_batch_mode():
 
 def test_cli_cleanup_flag():
     """Test that --cleanup triggers cleanup_wizard."""
-    with patch('sys.argv', ['pyhako-cli', '--cleanup']), \
-         patch('pyhako_cli.cli.HakoCLI') as MockCLI:
+    with patch('sys.argv', ['saka-cli', '--cleanup']), \
+         patch('saka_cli.cli.SakaCLI') as MockCLI:
         
         mock_instance = MockCLI.return_value
         mock_instance.cleanup_wizard = AsyncMock()
@@ -67,8 +67,8 @@ def test_cli_cleanup_flag():
 
 def test_cli_interactive_flag():
     """Test that --interactive triggers the wizard."""
-    with patch('sys.argv', ['pyhako-cli', '--interactive']), \
-         patch('pyhako_cli.cli.HakoCLI') as MockCLI:
+    with patch('sys.argv', ['saka-cli', '--interactive']), \
+         patch('saka_cli.cli.SakaCLI') as MockCLI:
 
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
@@ -88,7 +88,7 @@ def test_cli_interactive_flag():
         # Should initialize CLI with the wizard's output (and appropriate Group)
         # Note: We need to check if ScraperCLI was initialized with Group.NOGIZAKA46
         # Since we mock ScraperCLI class, we can check call args
-        from pyhako import Group
+        from pysaka import Group
         MockCLI.assert_called_with(output_dir='custom_out', group=Group.NOGIZAKA46)
 
         # Should run with wizard's config (include_offline is the actual param name, mode is also passed)
@@ -102,11 +102,11 @@ def test_cli_interactive_flag():
 
 def test_cli_lang_arg():
     """Test that --lang flag sets the language."""
-    from pyhako_cli import strings
+    from saka_cli import strings
 
     # Need to also provide -s to skip interactive mode (which would need wizard mock)
-    with patch('sys.argv', ['pyhako-cli', '--lang', 'ja', '-s', 'nogizaka46']), \
-         patch('pyhako_cli.cli.HakoCLI') as MockCLI:
+    with patch('sys.argv', ['saka-cli', '--lang', 'ja', '-s', 'nogizaka46']), \
+         patch('saka_cli.cli.SakaCLI') as MockCLI:
 
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
@@ -122,7 +122,7 @@ def test_cli_lang_arg():
 
 def test_cli_lang_detection():
     """Test that language detection works (mocking locale)."""
-    from pyhako_cli.cli import detect_system_language
+    from saka_cli.cli import detect_system_language
     
     # Test Japanese detection
     with patch('locale.setlocale'), \
@@ -147,7 +147,7 @@ def test_cli_full_batch_mode():
     """Test batch mode with ALL optional arguments (group, members, offline)."""
     # Args: -o out -s sakurazaka46 -g 100 -m 1 2 3 --include-offline
     argv = [
-        'pyhako-cli',
+        'saka-cli',
         '-o', 'custom_out',
         '-s', 'sakurazaka46',
         '-g', '100',
@@ -156,14 +156,14 @@ def test_cli_full_batch_mode():
     ]
 
     with patch('sys.argv', argv), \
-         patch('pyhako_cli.cli.HakoCLI') as MockCLI:
+         patch('saka_cli.cli.SakaCLI') as MockCLI:
 
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
 
         main()
 
-        from pyhako import Group
+        from pysaka import Group
         # Check Init
         MockCLI.assert_called_with(output_dir='custom_out', group=Group.SAKURAZAKA46)
 
@@ -178,9 +178,9 @@ def test_cli_full_batch_mode():
 
 def test_cli_verbose():
     """Test that -v flag enables verbose logging."""
-    with patch('sys.argv', ['pyhako-cli', '-v']), \
-         patch('pyhako_cli.cli.setup_logging') as mock_setup, \
-         patch('pyhako_cli.cli.HakoCLI') as MockCLI: # Mock CLI to prevent run
+    with patch('sys.argv', ['saka-cli', '-v']), \
+         patch('saka_cli.cli.setup_logging') as mock_setup, \
+         patch('saka_cli.cli.SakaCLI') as MockCLI: # Mock CLI to prevent run
          
         # We need to mock instance methods to avoid main() crashing after setup_logging
         MockCLI.return_value.run = AsyncMock()
@@ -192,15 +192,15 @@ def test_cli_verbose():
 
 def test_interactive_wizard_skips_lang_prompt_when_detected():
     """Test that interactive wizard skips lang prompt when language was pre-detected (non-English)."""
-    from pyhako_cli.cli import HakoCLI
-    from pyhako_cli import strings
+    from saka_cli.cli import SakaCLI
+    from saka_cli import strings
 
     # Set language to Japanese (simulating auto-detection from system/config)
     original_lang = strings.get_language()
     strings.set_language('ja')
 
     try:
-        cli = HakoCLI()
+        cli = SakaCLI()
 
         # Mock input to track what prompts are shown
         inputs_given = []

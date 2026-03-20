@@ -1,8 +1,8 @@
 
 import pytest
 from unittest.mock import patch
-from pyhako_cli.cli import get_parser, main
-from pyhako_cli.strings import set_language
+from saka_cli.cli import get_parser, main
+from saka_cli.strings import set_language
 
 def test_cli_help_snapshot(snapshot, capsys):
     """Test CLI help output consistency."""
@@ -15,7 +15,7 @@ def test_cli_help_snapshot(snapshot, capsys):
 
 def test_cli_version_snapshot(snapshot, capsys):
     """Test CLI version output consistency."""
-    with patch("sys.argv", ["pyhako-cli", "--version"]):
+    with patch("sys.argv", ["saka-cli", "--version"]):
         try:
             main()
         except SystemExit:
@@ -35,7 +35,7 @@ async def test_setup_wizard_prompts(snapshot):
     # We'll use a mock customized to print the prompt it received?
     # Or just capture the side-effects strings.
 
-    from pyhako_cli.strings import get_string, set_language
+    from saka_cli.strings import get_string, set_language
 
     # Ensure consistent language for snapshot testing
     set_language('en')

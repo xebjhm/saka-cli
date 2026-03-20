@@ -4,21 +4,21 @@ from unittest.mock import patch, AsyncMock
 
 def test_setup_saves_to_keyring():
     """Test that setup wizard saves credentials to TokenManager."""
-    with patch('sys.argv', ['pyhako-cli', '--interactive']), \
-         patch('pyhako_cli.cli.HakoCLI'), \
-         patch('pyhako.credentials.TokenManager'):
+    with patch('sys.argv', ['saka-cli', '--interactive']), \
+         patch('saka_cli.cli.SakaCLI'), \
+         patch('pysaka.credentials.TokenManager'):
         # This test just verifies the patches can be applied
         pass
 
 @pytest.mark.asyncio
 async def test_hako_cli_setup_secure():
-    from pyhako_cli.cli import HakoCLI
-    from pyhako import Group
+    from saka_cli.cli import SakaCLI
+    from pysaka import Group
     
-    cli = HakoCLI(group=Group.NOGIZAKA46)
+    cli = SakaCLI(group=Group.NOGIZAKA46)
     
-    with patch('pyhako_cli.cli.BrowserAuth.login', new_callable=AsyncMock) as mock_login, \
-         patch('pyhako.credentials.TokenManager') as MockTM, \
+    with patch('saka_cli.cli.BrowserAuth.login', new_callable=AsyncMock) as mock_login, \
+         patch('pysaka.credentials.TokenManager') as MockTM, \
          patch.object(cli, 'save_config') as mock_save_config, \
          patch.object(cli, 'load_config', return_value={}):
          
@@ -46,15 +46,15 @@ async def test_hako_cli_setup_secure():
 
 @pytest.mark.asyncio
 async def test_hako_cli_run_secure():
-    from pyhako_cli.cli import HakoCLI
-    from pyhako import Group
+    from saka_cli.cli import SakaCLI
+    from pysaka import Group
     
-    cli = HakoCLI(group=Group.SAKURAZAKA46)
+    cli = SakaCLI(group=Group.SAKURAZAKA46)
     
-    with patch('pyhako.credentials.TokenManager') as MockTM, \
+    with patch('pysaka.credentials.TokenManager') as MockTM, \
          patch.object(cli, 'load_config', return_value={'x-talk-app-id': 'app'}), \
-         patch('pyhako_cli.cli.Client') as MockClient, \
-         patch('pyhako_cli.cli.SyncManager'), \
+         patch('saka_cli.cli.Client') as MockClient, \
+         patch('saka_cli.cli.SyncManager'), \
          patch('aiohttp.ClientSession'):
          
         # Mock Keyring Data
@@ -79,12 +79,12 @@ async def test_hako_cli_run_secure():
         
 @pytest.mark.asyncio
 async def test_hako_cli_cleanup_secure():
-    from pyhako_cli.cli import HakoCLI
-    from pyhako import Group
+    from saka_cli.cli import SakaCLI
+    from pysaka import Group
     
-    cli = HakoCLI(group=Group.HINATAZAKA46)
+    cli = SakaCLI(group=Group.HINATAZAKA46)
     
-    with patch('pyhako.credentials.TokenManager') as MockTM, \
+    with patch('pysaka.credentials.TokenManager') as MockTM, \
          patch('pathlib.Path.exists', return_value=False), \
          patch('builtins.input', return_value='y'):
          

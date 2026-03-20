@@ -1,5 +1,5 @@
 
-# src/pyhako_cli/strings.py
+# src/saka_cli/strings.py
 
 _CURRENT_LANG = 'en'
 
@@ -87,7 +87,7 @@ STRINGS = {
         "session_expired_title": "⚠️  Session Expired",
         "session_expired_message": "Your session has been invalidated.\\nThis usually happens when you log in from another browser.\\n\\nPlease log in again to continue.",
         "session_expired_prompt": "Press Enter to start login...",
-        "help_desc": "PyHako CLI - Sakamichi Series Media Scraper",
+        "help_desc": "pysaka CLI - Sakamichi Series Media Scraper",
         "help_service": "Target Service (Group)",
         "help_output": "Output directory for downloaded content",
         "help_interactive": "Run in interactive wizard mode",
@@ -184,7 +184,7 @@ STRINGS = {
         "session_expired_message": "セッションが無効になりました。\\nこれは通常、別のブラウザでログインした場合に発生します。\\n\\n続行するには再度ログインしてください。",
         "session_expired_prompt": "Enterキーを押してログインを開始...",
 
-        "help_desc": "PyHako CLI - 坂道シリーズ メディアスクレイパー",
+        "help_desc": "pysaka CLI - 坂道シリーズ メディアスクレイパー",
         "help_service": "対象サービス (グループ)",
         "help_output": "ダウンロード保存先ディレクトリ",
         "help_interactive": "対話モードで実行",
@@ -281,7 +281,7 @@ STRINGS = {
         "session_expired_message": "您的工作階段已失效。\\n這通常是因為您在其他瀏覽器進行了登入。\\n\\n請重新登入以繼續。",
         "session_expired_prompt": "按 Enter 鍵開始登入...",
 
-        "help_desc": "PyHako CLI - 坂道系列媒體爬蟲",
+        "help_desc": "pysaka CLI - 坂道系列媒體爬蟲",
         "help_service": "目標服務 (團體)",
         "help_output": "下載內容輸出目錄",
         "help_interactive": "執行互動式精靈模式",
@@ -378,7 +378,7 @@ STRINGS = {
         "session_expired_message": "您的会话已失效。\\n这通常是因为您在其他浏览器进行了登录。\\n\\n请重新登录以继续。",
         "session_expired_prompt": "按回车键开始登录...",
 
-        "help_desc": "PyHako CLI - 坂道系列媒体爬虫",
+        "help_desc": "pysaka CLI - 坂道系列媒体爬虫",
         "help_service": "目标服务 (团体)",
         "help_output": "下载内容输出目录",
         "help_interactive": "运行交互式向导模式",
@@ -475,7 +475,7 @@ STRINGS = {
         "session_expired_message": "你嘅 Session 已經無效。\\n通常係因為你喺第二個瀏覽器登入咗。\\n\\n請重新登入繼續。",
         "session_expired_prompt": "撳 Enter 開始登入...",
 
-        "help_desc": "PyHako CLI - 坂道系列 Media Scraper",
+        "help_desc": "pysaka CLI - 坂道系列 Media Scraper",
         "help_service": "目標服務 (Group)",
         "help_output": "下載內容輸出目錄",
         "help_interactive": "用互動式 Wizard 模式",

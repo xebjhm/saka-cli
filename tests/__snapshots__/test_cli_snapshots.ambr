@@ -5,7 +5,7 @@
                 [-i] [--include-offline] [-g GROUP] [-m [MEMBERS ...]]
                 [--cleanup] [--lang {en,ja,zh-TW,zh-CN,yue}] [-v] [--blog]
   
-  PyHako CLI - Sakamichi Series Media Scraper
+  pysaka CLI - Sakamichi Series Media Scraper
   
   options:
     -h, --help            show this help message and exit

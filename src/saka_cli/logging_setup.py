@@ -32,7 +32,7 @@ def setup_logging(verbose: bool = False):
     
     
     # 2. Structlog Configuration (Override or Supplement)
-    # Even if PyHako configured structlog with cache=True, we can control RENDERING via the Handler Formatter.
+    # Even if pysaka configured structlog with cache=True, we can control RENDERING via the Handler Formatter.
     
     # Define the renderers we want (Console vs JSON)
     # Logic: If JSON_LOGS=1 -> JSON. Else -> Console.
@@ -73,7 +73,7 @@ def setup_logging(verbose: bool = False):
     root.setLevel(log_level)
 
 
-    # Re-configure structlog just in case it wasn't configured (unlikely if PyHako imported)
+    # Re-configure structlog just in case it wasn't configured (unlikely if pysaka imported)
     # But if it WAS configured with cache=True, this might happen too late for existing loggers.
     # That's why we rely on the ProcessorFormatter in the handler to do the final rendering.
     try:
@@ -99,15 +99,15 @@ def setup_logging(verbose: bool = False):
     # 3. Third-party Library Noise Reduction
     # Unless verbose, silence library info logs
     if not verbose:
-        # PyHako Library: Only WARNING+
-        logging.getLogger("pyhako").setLevel(logging.WARNING)
+        # pysaka Library: Only WARNING+
+        logging.getLogger("pysaka").setLevel(logging.WARNING)
         # HTTP Libraries: Only WARNING+
         logging.getLogger("aiohttp").setLevel(logging.WARNING)
         logging.getLogger("urllib3").setLevel(logging.WARNING)
         
-        # PyHakoCLI (This app): Keep INFO
-        logging.getLogger("pyhako_cli").setLevel(logging.INFO)
+        # saka-cli (This app): Keep INFO
+        logging.getLogger("saka_cli").setLevel(logging.INFO)
     else:
         # In verbose mode, let everything spill
-        logging.getLogger("pyhako").setLevel(logging.DEBUG)
-        logging.getLogger("pyhako_cli").setLevel(logging.DEBUG)
+        logging.getLogger("pysaka").setLevel(logging.DEBUG)
+        logging.getLogger("saka_cli").setLevel(logging.DEBUG)
