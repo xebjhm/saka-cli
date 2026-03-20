@@ -1,4 +1,4 @@
-# PyHako CLI
+# pysaka CLI
 
 > Seamlessly scrape, archive, and manage your Sakamichi Series messages.
 
@@ -40,8 +40,14 @@ The following are excerpts from the official Terms of Service. Please refer to t
 
 ### 1. Download Binary
 Download the latest executable for your operating system from the **[Releases Page](../../releases)**.
-- **Windows**: `pyhako-cli-windows.exe`
-- **Linux**: `pyhako-cli-linux`
+
+Binary naming convention: `saka-cli-{version}-{platform}`
+- **Windows**: `saka-cli-X.Y.Z-windows.exe`
+- **Linux**: `saka-cli-X.Y.Z-linux`
+
+Example for v0.1.1:
+- `saka-cli-0.1.1-windows.exe`
+- `saka-cli-0.1.1-linux`
 
 ### 2. Run
 No installation required. Just double-click the file or run it from your terminal.
@@ -50,11 +56,11 @@ No installation required. Just double-click the file or run it from your termina
 New to CLI tools? Just run the executable without arguments to start the **Interactive Wizard**:
 
 ```bash
-# Windows
-.\pyhako-cli-windows.exe
+# Windows (example for v0.1.1)
+.\saka-cli-0.1.1-windows.exe
 
-# Linux
-./pyhako-cli-linux
+# Linux (example for v0.1.1)
+./saka-cli-0.1.1-linux
 ```
 
 The wizard will guide you through:
@@ -69,35 +75,33 @@ For power users and automation (CI/CD, Cron).
 Perform a one-time login for a specific group.
 ```bash
 # Setup for Nogizaka46 (Default)
-./pyhako-cli-linux -s nogizaka46 --interactive
-# OR (Windows)
-.\pyhako-cli-windows.exe -s nogizaka46 --interactive
+./saka-cli -s nogizaka46 --interactive
 
 # Setup for Hinatazaka46
-./pyhako-cli-linux -s hinatazaka46 --interactive
+./saka-cli -s hinatazaka46 --interactive
 ```
 
 ### 2. Scraping
 **Basic Sync (All subscribed members):**
 ```bash
-./pyhako-cli-linux -s nogizaka46
+./saka-cli -s nogizaka46
 ```
 
 **Include Expired/Inactive Members:**
 ```bash
-./pyhako-cli-linux -s nogizaka46 --include-offline
+./saka-cli -s nogizaka46 --include-offline
 ```
 
 **Target Specific Members:**
 ```bash
 # Sync specific Group ID and Member IDs
-./pyhako-cli-linux -g 12 -m 34,56
+./saka-cli -g 12 -m 34,56
 ```
 
 ### 3. Cleanup
 Remove all local authentication data and tokens.
 ```bash
-./pyhako-cli-linux --cleanup
+./saka-cli --cleanup
 ```
 
 ### 4. Official Blog Backup (All Groups)
@@ -114,14 +118,16 @@ Select your group -> `Official Blog Backup` in the wizard.
 **Batch Mode:**
 ```bash
 # Backup specific members (ID from official site)
-./pyhako-cli-linux -s nogizaka46 --blog -m member_code1,member_code2
+./saka-cli -s nogizaka46 --blog -m member_code1,member_code2
 
 # Backup ALL members for a group
-./pyhako-cli-linux -s hinatazaka46 --blog
+./saka-cli -s hinatazaka46 --blog
 
 # Sakurazaka46 example
-./pyhako-cli-linux -s sakurazaka46 --blog
+./saka-cli -s sakurazaka46 --blog
 ```
+
+> **Note**: Replace `./saka-cli` with the actual binary name (e.g., `./saka-cli-0.1.1-linux` or `.\saka-cli-0.1.1-windows.exe`)
 
 ## Configuration
 Configuration is stored in `config_{group}.json` in the current working directory.
@@ -130,7 +136,7 @@ Configuration is stored in `config_{group}.json` in the current working director
 
 ## Linux Support & Troubleshooting
 
-PyHakoCLI uses the system keyring to securely store authentication tokens.
+saka-cli uses the system keyring to securely store authentication tokens.
 
 ### 1. Standard Desktop (GNOME/KDE)
 Ensure `gnome-keyring` is installed and unlocked:
@@ -149,4 +155,4 @@ If you see **"Prompt dismissed"** or **"No recommended backend"** errors, your e
 MIT
 
 ---
-**For Developers:** check [DEVELOPMENT.md](DEVELOPMENT.md) for build instructions.
+**For Developers:** check [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for build instructions.

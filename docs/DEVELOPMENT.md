@@ -1,6 +1,6 @@
-# PyHakoCLI Developer Guide
+# saka-cli Developer Guide
 
-This guide is for contributors and developers who want to build, test, or modify PyHakoCLI from source.
+This guide is for contributors and developers who want to build, test, or modify saka-cli from source.
 
 ## Prerequisites
 - Python 3.9+
@@ -10,14 +10,14 @@ This guide is for contributors and developers who want to build, test, or modify
 
 ```bash
 # Clone the repository
-git clone https://github.com/xebjhm/PyHakoCLI.git
-cd PyHakoCLI
+git clone https://github.com/xebjhm/saka-cli.git
+cd saka-cli
 
 # Install dependencies and sync environment
 uv sync
 
 # Verify installation
-uv run pyhako-cli --help
+uv run saka-cli --help
 ```
 
 ## Development Cycle
@@ -25,7 +25,7 @@ uv run pyhako-cli --help
 ### 1. Running Locally
 Use `uv run` to execute the CLI within the managed environment:
 ```bash
-uv run pyhako-cli --interactive
+uv run saka-cli --interactive
 ```
 
 ### 2. Running Tests
@@ -46,7 +46,7 @@ uv run python scripts/build_local.py
 ```bash
 uv run python scripts/test_build.py
 # Or test directly:
-./dist/pyhako-cli-linux --help
+./dist/saka-cli-linux --help
 ```
 
 **Windows Helper**:
@@ -60,7 +60,7 @@ uvx ruff format .
 ```
 
 ## Contributing
-We follow the [PyHako Core Contribution Guidelines](https://github.com/xebjhm/PyHako).
+We follow the [pysaka Core Contribution Guidelines](https://github.com/xebjhm/pysaka).
 - **Versioning**: Semantic Versioning.
 - **Code Style**: Ruff strict.
 - **Commits**: Conventional Commits.

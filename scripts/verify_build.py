@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Smoke tests for built PyHakoCLI executable.
+Smoke tests for built saka-cli executable.
 
 Run after build_local.py to verify the built exe works.
 
@@ -24,9 +24,9 @@ def get_exe_path() -> Path:
     dist_dir = project_root / "dist"
     
     if platform.system() == "Windows":
-        return dist_dir / "pyhako-cli-windows.exe"
+        return dist_dir / "saka-cli-windows.exe"
     else:
-        return dist_dir / "pyhako-cli-linux"
+        return dist_dir / "saka-cli-linux"
 
 
 def run_command(args: list[str], timeout: int = 30) -> tuple[int, str, str]:
@@ -56,7 +56,7 @@ def test_help():
     
     # Check expected strings
     # "scraper" might be localized, so we remove it or check loosely
-    expected = ["usage", "pyhako", "options"]
+    expected = ["usage", "pysaka", "options"]
     for exp in expected:
         if exp.lower() not in stdout.lower():
             print(f"   ❌ Missing expected string: {exp}")

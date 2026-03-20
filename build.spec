@@ -1,24 +1,40 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import copy_metadata
+import os
+import platform
+import tomllib
+
+# Read version from pyproject.toml
+with open('pyproject.toml', 'rb') as f:
+    pyproject = tomllib.load(f)
+    VERSION = pyproject['project']['version']
+
+# Determine platform suffix
+PLATFORM = 'windows' if platform.system() == 'Windows' else 'linux'
+BINARY_NAME = f'saka-cli-{VERSION}-{PLATFORM}'
 
 datas = []
 datas += copy_metadata('playwright')
 datas += copy_metadata('tqdm')
 datas += copy_metadata('aiohttp')
 
-import os
 project_dir = os.path.abspath(os.getcwd())
-pyhako_src = os.path.abspath(os.path.join(project_dir, '../PyHako/src'))
+
+# Use local pysaka if available (dev), otherwise rely on installed package
+pysaka_local = os.path.abspath(os.path.join(project_dir, '../pysaka/src'))
+pathex = ['src']
+if os.path.exists(pysaka_local):
+    pathex.append(pysaka_local)
 
 a = Analysis(
-    ['src/pyhako_cli/cli.py'],
-    pathex=['src', pyhako_src],
+    ['src/saka_cli/cli.py'],
+    pathex=pathex,
     binaries=[],
     datas=datas,
     hiddenimports=[
-        'pyhako', 'pyhako.auth', 'pyhako.client', 'pyhako.utils', 
-        'pyhako.manager', 'pyhako.credentials', 'pyhako.logging',
-        'pyhako_cli', 'pyhako_cli.logging_setup', 'pyhako_cli.strings',
+        'pysaka', 'pysaka.auth', 'pysaka.client', 'pysaka.utils', 
+        'pysaka.manager', 'pysaka.credentials', 'pysaka.logging',
+        'saka_cli', 'saka_cli.logging_setup', 'saka_cli.strings',
         'structlog', 'keyrings.alt', 'playwright.__main__'
     ],
     hookspath=['.'],
@@ -35,7 +51,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='pyhako-cli',
+    name=BINARY_NAME,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

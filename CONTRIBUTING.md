@@ -1,6 +1,6 @@
-# Contributing to PyHako CLI
+# Contributing to pysaka CLI
 
-Thank you for your interest in contributing to PyHako CLI! This document outlines our development workflow, branching strategy, and contribution guidelines.
+Thank you for your interest in contributing to pysaka CLI! This document outlines our development workflow, branching strategy, and contribution guidelines.
 
 ## Table of Contents
 
@@ -70,8 +70,8 @@ hotfix/crash-on-startup
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/xebjhm/PyHakoCLI.git
-   cd PyHakoCLI
+   git clone https://github.com/xebjhm/saka-cli.git
+   cd saka-cli
    ```
 
 2. **Install dependencies** using `uv`:
@@ -81,7 +81,7 @@ hotfix/crash-on-startup
 
 3. **Run the CLI** (development mode):
    ```bash
-   uv run python -m pyhako_cli
+   uv run python -m saka_cli
    ```
 
 4. **Run Tests**:
@@ -158,8 +158,8 @@ docs: update CLI usage examples
 
 Run the CLI directly:
 ```bash
-uv run python -m pyhako_cli --help
-uv run python -m pyhako_cli -s hinatazaka46
+uv run python -m saka_cli --help
+uv run python -m saka_cli -s hinatazaka46
 ```
 
 ### Build Executable
@@ -175,7 +175,7 @@ Smoke test the executable:
 ```bash
 uv run python scripts/test_build.py
 # Or directly:
-./dist/pyhako-cli --help
+./dist/saka-cli --help
 ```
 
 ### Run All Tests

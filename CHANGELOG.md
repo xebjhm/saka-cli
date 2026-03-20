@@ -7,12 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-01-11
+
 ### Added
 - Blog backup support (`--blog` flag)
 - Improved error messages for authentication failures
+- Git Flow workflow documentation (CONTRIBUTING.md, PR template)
 
 ### Changed
 - Updated to use pysaka TokenManager for credential storage
+- CI now uses PyPI pysaka instead of local checkout
+- Requires pysaka >=0.1.1
 
 ### Fixed
 - Session expiration handling with proper re-login prompt
@@ -33,5 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Secure token storage via system keyring
 - No plaintext credential storage
 
-[Unreleased]: https://github.com/xebjhm/saka-cli/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/xebjhm/saka-cli/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/xebjhm/saka-cli/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/xebjhm/saka-cli/releases/tag/v0.1.0

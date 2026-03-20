@@ -12,7 +12,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
 
     permissions:
       contents: write
@@ -28,30 +32,37 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Install dependencies (using PyPI pyhako)
+      - name: Install dependencies (using PyPI pysaka)
         run: uv sync --no-sources
 
       - name: Build with PyInstaller
         run: uv run --no-sources pyinstaller build.spec
 
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(grep -Po '(?<=^version = ")[^"]*' pyproject.toml)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Smoke Test Binary
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            ./dist/pyhako-cli.exe --help
+          if [ "${{ matrix.platform }}" == "windows" ]; then
+            ./dist/saka-cli-${{ steps.version.outputs.version }}-windows.exe --help
           else
-            chmod +x ./dist/pyhako-cli
-            ./dist/pyhako-cli --help
+            chmod +x ./dist/saka-cli-${{ steps.version.outputs.version }}-linux
+            ./dist/saka-cli-${{ steps.version.outputs.version }}-linux --help
           fi
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pyhako-cli-${{ matrix.os }}
-          path: dist/pyhako-cli*
+          name: saka-cli-${{ steps.version.outputs.version }}-${{ matrix.platform }}
+          path: dist/saka-cli-*
 
       - name: Publish Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: dist/pyhako-cli*
+          files: dist/saka-cli-*

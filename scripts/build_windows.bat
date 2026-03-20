@@ -1,5 +1,5 @@
 @echo off
-REM PyHakoCLI Windows Build and Test Script
+REM saka-cli Windows Build and Test Script
 REM Run this from Windows (double-click or cmd.exe)
 REM Works from any location - auto-detects project path
 
@@ -9,7 +9,7 @@ set PROJECT_DIR=%SCRIPT_DIR%..
 set BUILD_DIR=%PROJECT_DIR%\dist
 
 echo ============================================
-echo  PyHakoCLI Windows Build ^& Test
+echo  saka-cli Windows Build ^& Test
 echo ============================================
 echo.
 
@@ -33,9 +33,9 @@ echo      Project: %CD%
 echo.
 
 echo [2/3] Preparing workspace...
-set WORKSPACE_ROOT=%TEMP%\PyHako_Workspace
-set WORKSPACE_CLI=%WORKSPACE_ROOT%\PyHakoCLI
-set WORKSPACE_LIB=%WORKSPACE_ROOT%\PyHako
+set WORKSPACE_ROOT=%TEMP%\pysaka_Workspace
+set WORKSPACE_CLI=%WORKSPACE_ROOT%\saka-cli
+set WORKSPACE_LIB=%WORKSPACE_ROOT%\pysaka
 
 if exist "%WORKSPACE_ROOT%" rmdir /s /q "%WORKSPACE_ROOT%"
 mkdir "%WORKSPACE_ROOT%"
@@ -44,18 +44,18 @@ mkdir "%WORKSPACE_ROOT%"
 @REM /E - recursive, /XD - exclude dirs, /R:1 /W:1 - retry once wait 1s
 @REM Exclude: .venv, dist, build, .git, auth_data, output, __pycache__, .pytest_cache
 
-echo      Copying PyHakoCLI to workspace...
+echo      Copying saka-cli to workspace...
 robocopy "%PROJECT_DIR%" "%WORKSPACE_CLI%" /E /XD .venv dist build .git auth_data output __pycache__ .pytest_cache .idea .vscode /R:1 /W:1 /NFL /NDL /NJH /NJS
 if %ERRORLEVEL% geq 8 (
-    echo ERROR: Robocopy failed for PyHakoCLI
+    echo ERROR: Robocopy failed for saka-cli
     pause
     exit /b 1
 )
 
-echo      Copying PyHako (dependency) to workspace...
-robocopy "%PROJECT_DIR%\..\PyHako" "%WORKSPACE_LIB%" /E /XD .venv dist build .git auth_data output __pycache__ .pytest_cache .idea .vscode /R:1 /W:1 /NFL /NDL /NJH /NJS
+echo      Copying pysaka (dependency) to workspace...
+robocopy "%PROJECT_DIR%\..\pysaka" "%WORKSPACE_LIB%" /E /XD .venv dist build .git auth_data output __pycache__ .pytest_cache .idea .vscode /R:1 /W:1 /NFL /NDL /NJH /NJS
 if %ERRORLEVEL% geq 8 (
-    echo ERROR: Robocopy failed for PyHako
+    echo ERROR: Robocopy failed for pysaka
     pause
     exit /b 1
 )
@@ -93,7 +93,7 @@ popd
 echo.
 echo [5/5] Copying artifacts back...
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
-copy /Y "%WORKSPACE_CLI%\dist\pyhako-cli-windows.exe" "%BUILD_DIR%\" >nul
+copy /Y "%WORKSPACE_CLI%\dist\saka-cli-windows.exe" "%BUILD_DIR%\" >nul
 echo      Artifact copied to %BUILD_DIR%
 
 popd
@@ -101,7 +101,7 @@ popd
 echo.
 echo ============================================
 echo  Build complete!
-echo  Executable: %BUILD_DIR%\pyhako-cli-windows.exe
+echo  Executable: %BUILD_DIR%\saka-cli-windows.exe
 echo ============================================
 echo.
 REM Only pause if manually double-clicked (detection hard in bat, so removing for automation)

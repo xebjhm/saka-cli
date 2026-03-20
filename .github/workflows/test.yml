@@ -22,7 +22,7 @@ jobs:
     - name: Set up Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
 
-    - name: Install dependencies (using PyPI pyhako)
+    - name: Install dependencies (using PyPI pysaka)
       run: uv sync --all-extras --dev --no-sources
 
     - name: Run Tests

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Local PyInstaller build script for PyHakoCLI.
+Local PyInstaller build script for saka-cli.
 
 This builds the CLI executable locally, same as CI/CD.
 
 Usage:
     uv run python scripts/build_local.py [--clean]
 
-The built executable will be in: dist/pyhako-cli (or dist/pyhako-cli.exe on Windows)
+The built executable will be in: dist/saka-cli (or dist/saka-cli.exe on Windows)
 """
 import subprocess
 import sys
@@ -31,7 +31,7 @@ def main():
         if build_dir.exists():
             shutil.rmtree(build_dir)
     
-    print("📦 Building PyHakoCLI with PyInstaller...")
+    print("📦 Building saka-cli with PyInstaller...")
     print(f"   Platform: {platform.system()}")
     print(f"   Python: {sys.version}")
     
@@ -52,11 +52,11 @@ def main():
     
     # Determine output name
     if platform.system() == "Windows":
-        exe_name = "pyhako-cli-windows.exe"
-        original_name = "pyhako-cli.exe"
+        exe_name = "saka-cli-windows.exe"
+        original_name = "saka-cli.exe"
     else:
-        exe_name = "pyhako-cli-linux"
-        original_name = "pyhako-cli"
+        exe_name = "saka-cli-linux"
+        original_name = "saka-cli"
     
     # Rename/Move to standard name
     original_path = dist_dir / original_name

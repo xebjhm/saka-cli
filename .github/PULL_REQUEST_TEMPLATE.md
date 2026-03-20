@@ -37,7 +37,7 @@ Closes #
 - [ ] Unit tests pass (`uv run pytest`)
 - [ ] Linting passes (`uv run ruff check .`)
 - [ ] Build works (`uv run python scripts/build_local.py`)
-- [ ] Smoke test passes (`./dist/pyhako-cli --help`)
+- [ ] Smoke test passes (`./dist/saka-cli --help`)
 
 **Manual Testing:**
 <!-- Describe manual testing performed with the CLI -->
