@@ -147,7 +147,7 @@ sudo apt-get install gnome-keyring
 ### 2. Headless / Server / WSL
 If you see **"Prompt dismissed"** or **"No recommended backend"** errors, your environment lacks a GUI prompt to unlock the keyring.
 
-**Solution**: Install `keyring` and `keyrings.alt` locally if using the Python version, OR if using the binary, it should handle fallback automatically if built correctly. 
+**Solution**: Install `keyring` and `keyrings.alt` locally if using the Python version, OR if using the binary, it should handle fallback automatically if built correctly.
 
 *Note: The CLI attempts to auto-detect this and fallback to a file-based keyring.*
 

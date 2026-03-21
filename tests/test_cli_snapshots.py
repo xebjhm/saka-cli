@@ -1,17 +1,18 @@
-
 import pytest
 from unittest.mock import patch
 from saka_cli.cli import get_parser, main
 from saka_cli.strings import set_language
 
+
 def test_cli_help_snapshot(snapshot, capsys):
     """Test CLI help output consistency."""
     # Ensure consistent language for snapshot testing
-    set_language('en')
+    set_language("en")
     parser = get_parser()
     parser.print_help()
     captured = capsys.readouterr()
     assert captured.out == snapshot
+
 
 def test_cli_version_snapshot(snapshot, capsys):
     """Test CLI version output consistency."""
@@ -21,9 +22,10 @@ def test_cli_version_snapshot(snapshot, capsys):
         except SystemExit:
             pass
     captured = capsys.readouterr()
-    # The output might vary if version isn't hardcoded or mocked, 
+    # The output might vary if version isn't hardcoded or mocked,
     # but let's assume stable env or just check structure
     assert captured.out == snapshot
+
 
 @pytest.mark.asyncio
 async def test_setup_wizard_prompts(snapshot):
@@ -38,12 +40,12 @@ async def test_setup_wizard_prompts(snapshot):
     from saka_cli.strings import get_string, set_language
 
     # Ensure consistent language for snapshot testing
-    set_language('en')
+    set_language("en")
 
     # Just snapshot the prompt strings to ensure they don't drift unintendedly
     prompts = {
         "welcome": get_string("welcome"),
         "setup_login_success": get_string("setup_login_success"),
-        "interactive_lang": get_string("interactive_lang")
+        "interactive_lang": get_string("interactive_lang"),
     }
     assert prompts == snapshot

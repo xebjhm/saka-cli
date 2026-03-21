@@ -32,7 +32,7 @@ a = Analysis(
     binaries=[],
     datas=datas,
     hiddenimports=[
-        'pysaka', 'pysaka.auth', 'pysaka.client', 'pysaka.utils', 
+        'pysaka', 'pysaka.auth', 'pysaka.client', 'pysaka.utils',
         'pysaka.manager', 'pysaka.credentials', 'pysaka.logging',
         'saka_cli', 'saka_cli.logging_setup', 'saka_cli.strings',
         'structlog', 'keyrings.alt', 'playwright.__main__'

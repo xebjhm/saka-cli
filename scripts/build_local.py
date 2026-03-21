@@ -9,6 +9,7 @@ Usage:
 
 The built executable will be in: dist/saka-cli (or dist/saka-cli.exe on Windows)
 """
+
 import subprocess
 import sys
 import shutil
@@ -20,36 +21,38 @@ def main():
     project_root = Path(__file__).parent.parent
     dist_dir = project_root / "dist"
     build_dir = project_root / "build"
-    
+
     # Parse args
     clean = "--clean" in sys.argv
-    
+
     if clean:
         print("🧹 Cleaning previous build...")
         if dist_dir.exists():
             shutil.rmtree(dist_dir)
         if build_dir.exists():
             shutil.rmtree(build_dir)
-    
+
     print("📦 Building saka-cli with PyInstaller...")
     print(f"   Platform: {platform.system()}")
     print(f"   Python: {sys.version}")
-    
+
     # Run PyInstaller with same config as CI
     cmd = [
-        sys.executable, "-m", "PyInstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         "build.spec",
         "--noconfirm",
     ]
     if clean:
         cmd.append("--clean")
-    
+
     result = subprocess.run(cmd, cwd=project_root)
-    
+
     if result.returncode != 0:
         print("❌ Build failed!")
         sys.exit(1)
-    
+
     # Determine output name
     if platform.system() == "Windows":
         exe_name = "saka-cli-windows.exe"
@@ -57,15 +60,15 @@ def main():
     else:
         exe_name = "saka-cli-linux"
         original_name = "saka-cli"
-    
+
     # Rename/Move to standard name
     original_path = dist_dir / original_name
     exe_path = dist_dir / exe_name
-    
+
     if original_path.exists():
         # Rename if distinct
         if original_path != exe_path:
-             shutil.move(str(original_path), str(exe_path))
+            shutil.move(str(original_path), str(exe_path))
 
         print("✅ Build successful!")
         print(f"   Output: {exe_path}")

@@ -2,82 +2,89 @@ import pytest
 from unittest.mock import patch, AsyncMock
 from saka_cli.cli import main
 
+
 @pytest.fixture(autouse=True)
 def mock_dependencies():
-    with patch('saka_cli.cli.setup_logging'), \
-         patch('saka_cli.cli.Client'), \
-         patch('saka_cli.cli.SyncManager'), \
-         patch('saka_cli.cli.BrowserAuth'):
+    with (
+        patch("saka_cli.cli.setup_logging"),
+        patch("saka_cli.cli.Client"),
+        patch("saka_cli.cli.SyncManager"),
+        patch("saka_cli.cli.BrowserAuth"),
+    ):
         yield
+
 
 def test_cli_help():
     """Test that the CLI can run --help without error."""
-    with patch('sys.argv', ['saka-cli', '--help']):
+    with patch("sys.argv", ["saka-cli", "--help"]):
         with pytest.raises(SystemExit) as e:
             main()
         assert e.value.code == 0
 
+
 def test_cli_no_args_triggers_interactive():
     """Test that no args results in interactive mode."""
-    with patch('sys.argv', ['saka-cli']), \
-         patch('saka_cli.cli.SakaCLI') as MockCLI:
-        
+    with patch("sys.argv", ["saka-cli"]), patch("saka_cli.cli.SakaCLI") as MockCLI:
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
-        mock_instance.run_interactive_wizard.return_value = {
-            'service': 'hinatazaka46'
-        }
-        
+        mock_instance.run_interactive_wizard.return_value = {"service": "hinatazaka46"}
+
         main()
-        
+
         # Should have called interactive wizard
         mock_instance.run_interactive_wizard.assert_called_once()
 
 
 def test_cli_batch_mode():
     """Test explicit batch mode execution."""
-    with patch('sys.argv', ['saka-cli', '-o', 'outdir', '-s', 'nogizaka46']), \
-         patch('saka_cli.cli.SakaCLI') as MockCLI:
-        
+    with (
+        patch("sys.argv", ["saka-cli", "-o", "outdir", "-s", "nogizaka46"]),
+        patch("saka_cli.cli.SakaCLI") as MockCLI,
+    ):
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
-        
+
         main()
-        
+
         # Should NOT call wizard
         mock_instance.run_interactive_wizard.assert_not_called()
-        
+
         from pysaka import Group
+
         # Should initialize CLI with passed args
-        MockCLI.assert_called_with(output_dir='outdir', group=Group.NOGIZAKA46)
+        MockCLI.assert_called_with(output_dir="outdir", group=Group.NOGIZAKA46)
         # Should run
         mock_instance.run.assert_called_once()
 
+
 def test_cli_cleanup_flag():
     """Test that --cleanup triggers cleanup_wizard."""
-    with patch('sys.argv', ['saka-cli', '--cleanup']), \
-         patch('saka_cli.cli.SakaCLI') as MockCLI:
-        
+    with (
+        patch("sys.argv", ["saka-cli", "--cleanup"]),
+        patch("saka_cli.cli.SakaCLI") as MockCLI,
+    ):
         mock_instance = MockCLI.return_value
         mock_instance.cleanup_wizard = AsyncMock()
-        
+
         main()
-        
+
         mock_instance.cleanup_wizard.assert_called_once()
+
 
 def test_cli_interactive_flag():
     """Test that --interactive triggers the wizard."""
-    with patch('sys.argv', ['saka-cli', '--interactive']), \
-         patch('saka_cli.cli.SakaCLI') as MockCLI:
-
+    with (
+        patch("sys.argv", ["saka-cli", "--interactive"]),
+        patch("saka_cli.cli.SakaCLI") as MockCLI,
+    ):
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
         # Mock the wizard to return specific config
         mock_instance.run_interactive_wizard.return_value = {
-            'output_dir': 'custom_out',
-            'include_offline': True,
-            'group_id': 123,
-            'service': 'nogizaka46'
+            "output_dir": "custom_out",
+            "include_offline": True,
+            "group_id": 123,
+            "service": "nogizaka46",
         }
 
         main()
@@ -89,25 +96,28 @@ def test_cli_interactive_flag():
         # Note: We need to check if ScraperCLI was initialized with Group.NOGIZAKA46
         # Since we mock ScraperCLI class, we can check call args
         from pysaka import Group
-        MockCLI.assert_called_with(output_dir='custom_out', group=Group.NOGIZAKA46)
+
+        MockCLI.assert_called_with(output_dir="custom_out", group=Group.NOGIZAKA46)
 
         # Should run with wizard's config (include_offline is the actual param name, mode is also passed)
         mock_instance.run.assert_called_once_with(
             group_ids=[123],
             member_ids=None,
             include_offline=True,
-            mode='message',
-            blog_members_cache=None
+            mode="message",
+            blog_members_cache=None,
         )
+
 
 def test_cli_lang_arg():
     """Test that --lang flag sets the language."""
     from saka_cli import strings
 
     # Need to also provide -s to skip interactive mode (which would need wizard mock)
-    with patch('sys.argv', ['saka-cli', '--lang', 'ja', '-s', 'nogizaka46']), \
-         patch('saka_cli.cli.SakaCLI') as MockCLI:
-
+    with (
+        patch("sys.argv", ["saka-cli", "--lang", "ja", "-s", "nogizaka46"]),
+        patch("saka_cli.cli.SakaCLI") as MockCLI,
+    ):
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
 
@@ -115,80 +125,95 @@ def test_cli_lang_arg():
 
         # Verify language was set.
         # Since string module is imported, we can check its internal state or check if get_string returns ja strings.
-        assert strings._CURRENT_LANG == 'ja'
+        assert strings._CURRENT_LANG == "ja"
 
         # Verify reset for other tests
-        strings.set_language('en')
+        strings.set_language("en")
+
 
 def test_cli_lang_detection():
     """Test that language detection works (mocking locale)."""
     from saka_cli.cli import detect_system_language
-    
+
     # Test Japanese detection
-    with patch('locale.setlocale'), \
-         patch('locale.getlocale', return_value=('ja_JP', 'UTF-8')), \
-         patch('os.environ.get', return_value=None):
-        assert detect_system_language() == 'ja'
-        
+    with (
+        patch("locale.setlocale"),
+        patch("locale.getlocale", return_value=("ja_JP", "UTF-8")),
+        patch("os.environ.get", return_value=None),
+    ):
+        assert detect_system_language() == "ja"
+
     # Test Traditional Chinese
-    with patch('locale.setlocale'), \
-         patch('locale.getlocale', return_value=('zh_TW', 'UTF-8')), \
-         patch('os.environ.get', return_value=None):
-        assert detect_system_language() == 'zh-TW'
-        
+    with (
+        patch("locale.setlocale"),
+        patch("locale.getlocale", return_value=("zh_TW", "UTF-8")),
+        patch("os.environ.get", return_value=None),
+    ):
+        assert detect_system_language() == "zh-TW"
+
     # Test Simplified Chinese (fallback)
-    with patch('locale.setlocale'), \
-         patch('locale.getlocale', return_value=('zh_CN', 'UTF-8')), \
-         patch('os.environ.get', return_value=None):
-        assert detect_system_language() == 'zh-CN'
+    with (
+        patch("locale.setlocale"),
+        patch("locale.getlocale", return_value=("zh_CN", "UTF-8")),
+        patch("os.environ.get", return_value=None),
+    ):
+        assert detect_system_language() == "zh-CN"
 
 
 def test_cli_full_batch_mode():
     """Test batch mode with ALL optional arguments (group, members, offline)."""
     # Args: -o out -s sakurazaka46 -g 100 -m 1 2 3 --include-offline
     argv = [
-        'saka-cli',
-        '-o', 'custom_out',
-        '-s', 'sakurazaka46',
-        '-g', '100',
-        '-m', '1', '2', '3',
-        '--include-offline'
+        "saka-cli",
+        "-o",
+        "custom_out",
+        "-s",
+        "sakurazaka46",
+        "-g",
+        "100",
+        "-m",
+        "1",
+        "2",
+        "3",
+        "--include-offline",
     ]
 
-    with patch('sys.argv', argv), \
-         patch('saka_cli.cli.SakaCLI') as MockCLI:
-
+    with patch("sys.argv", argv), patch("saka_cli.cli.SakaCLI") as MockCLI:
         mock_instance = MockCLI.return_value
         mock_instance.run = AsyncMock()
 
         main()
 
         from pysaka import Group
+
         # Check Init
-        MockCLI.assert_called_with(output_dir='custom_out', group=Group.SAKURAZAKA46)
+        MockCLI.assert_called_with(output_dir="custom_out", group=Group.SAKURAZAKA46)
 
         # Check Run Args (include_offline is the correct param, mode is always passed)
         mock_instance.run.assert_called_once_with(
             group_ids=[100],
             member_ids=[1, 2, 3],
             include_offline=True,
-            mode='message',
-            blog_members_cache=None
+            mode="message",
+            blog_members_cache=None,
         )
+
 
 def test_cli_verbose():
     """Test that -v flag enables verbose logging."""
-    with patch('sys.argv', ['saka-cli', '-v']), \
-         patch('saka_cli.cli.setup_logging') as mock_setup, \
-         patch('saka_cli.cli.SakaCLI') as MockCLI: # Mock CLI to prevent run
-         
+    with (
+        patch("sys.argv", ["saka-cli", "-v"]),
+        patch("saka_cli.cli.setup_logging") as mock_setup,
+        patch("saka_cli.cli.SakaCLI") as MockCLI,
+    ):  # Mock CLI to prevent run
         # We need to mock instance methods to avoid main() crashing after setup_logging
         MockCLI.return_value.run = AsyncMock()
-        MockCLI.return_value.run_interactive_wizard.return_value = {} 
-        
+        MockCLI.return_value.run_interactive_wizard.return_value = {}
+
         main()
-        
+
         mock_setup.assert_called_with(verbose=True)
+
 
 def test_interactive_wizard_skips_lang_prompt_when_detected():
     """Test that interactive wizard skips lang prompt when language was pre-detected (non-English)."""
@@ -197,29 +222,28 @@ def test_interactive_wizard_skips_lang_prompt_when_detected():
 
     # Set language to Japanese (simulating auto-detection from system/config)
     original_lang = strings.get_language()
-    strings.set_language('ja')
+    strings.set_language("ja")
 
     try:
         cli = SakaCLI()
 
         # Mock input to track what prompts are shown
         inputs_given = []
+
         def mock_input(prompt=""):
             inputs_given.append(prompt)
             # Return 'y' for ToS prompt, empty for everything else
-            if 'y/N' in prompt or '[y/N]' in prompt:
-                return 'y'
+            if "y/N" in prompt or "[y/N]" in prompt:
+                return "y"
             return ""  # Default for all prompts
 
-        with patch('builtins.input', side_effect=mock_input), \
-             patch('builtins.print'):
-            config = cli.run_interactive_wizard()
+        with patch("builtins.input", side_effect=mock_input), patch("builtins.print"):
+            cli.run_interactive_wizard()
 
         # Should NOT prompt for language (skipped), so fewer inputs than when English
         # Language is stored in global prefs, not in config anymore
         # Verify language was preserved (not overwritten) by checking strings module
-        assert strings.get_language() == 'ja'
+        assert strings.get_language() == "ja"
     finally:
         # Reset language
         strings.set_language(original_lang)
-

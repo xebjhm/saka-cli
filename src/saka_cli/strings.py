@@ -1,10 +1,9 @@
-
 # src/saka_cli/strings.py
 
-_CURRENT_LANG = 'en'
+_CURRENT_LANG = "en"
 
 STRINGS = {
-    'en': {
+    "en": {
         "tos_title": "=== Terms of Service ===",
         "tos_warn": "\n[WARNING] Accessing the API via unauthorized means may violate the Terms of Service.\nThis tool is for educational purposes only. Use at your own risk.\n\nOfficial Terms of Service: {}\n\nUser must agree to the following terms (excerpt):\n\n[Japanese Original]\n第3条（知的財産権）\n3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。\n\n第8条（禁止事項）\n(16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為\n(17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為\n\n------------------------\n[Translation (Reference Only)]\n* The Japanese version is authoritative.\n\nArticle 3 (Intellectual Property Rights)\n3. Except where otherwise provided by the Company, the Customer is prohibited from reproducing, adapting, distributing, or publicly transmitting this Content.\n\nArticle 8 (Prohibited Acts)\n(16) Acts of accessing or attempting to access this Service by means other than the access methods designated by the Company.\n(17) Acts of accessing or attempting to access this Service using automated means (including crawlers and similar technologies).",
         "tos_prompt": "\nDo you agree to the above Terms of Service? [y/N]: ",
@@ -21,7 +20,6 @@ STRINGS = {
         "blog_tqdm_downloading": "Downloading",
         "blog_start": "Starting Blog Backup for member: {} (ID: {})",
         "blog_saved": "Saved: {} ({})",
-
         "cleanup_title": "=== Cleanup Wizard ===",
         "cleanup_warn": "This will remove:\n1. Secure tokens (from system keyring)\n2. Browser session (auth_data directory)\n3. Configuration files (config_*.json, cli_preferences.json)",
         "cleanup_linux_chrome": "4. (Optional) Google Chrome if it was installed by this tool",
@@ -32,8 +30,9 @@ STRINGS = {
         "cleanup_fail": "Failed to remove {}: {}",
         "cleanup_done": "\nCleanup complete!",
         "cleanup_safe_note": "Note: Your downloaded data in '{}' was KEPT safe.\n    If you want to remove it, please delete the folder manually.",
-        "cleanup_linux_chrome_cmd": "\n" + "==================================================" + "\nIf Chrome was installed by this tool and you want to remove it:\n    sudo apt remove google-chrome-stable",
-
+        "cleanup_linux_chrome_cmd": "\n"
+        + "=================================================="
+        + "\nIf Chrome was installed by this tool and you want to remove it:\n    sudo apt remove google-chrome-stable",
         "setup_title": "=== {} Scraper Setup ===",
         "setup_browser": "Opening browser for login...",
         "setup_auth_dir": "Using persistent auth directory: {}",
@@ -45,7 +44,6 @@ STRINGS = {
         "setup_manual_other": "Please install Google Chrome from: https://www.google.com/chrome/",
         "setup_login_success": "Config saved!",
         "setup_login_fail": "Login failed.",
-
         "run_no_config": "No configuration found. Starting setup wizard...",
         "run_setup_fail": "Setup failed or cancelled.",
         "run_init": "Initializing client...",
@@ -64,7 +62,6 @@ STRINGS = {
         "run_error": "Run error: {}",
         "run_fatal": "\nFatal error: {}",
         "run_interrupted": "\nInterrupted.",
-
         "interactive_title": "=== Interactive Mode ===",
         "interactive_lang": "Select Language:\n[1] English\n[2] 日本語\n[3] 繁體中文\n[4] 简体中文\n[5] 廣東話\nEnter choice (default: 1): ",
         "interactive_service": "Select Service:\n[1] Nogizaka46\n[2] Sakurazaka46\n[3] Hinatazaka46\nEnter choice (default: 1): ",
@@ -78,12 +75,10 @@ STRINGS = {
         "msg_no_members": "No subscribed members found.",
         "interactive_end": "========================",
         "interactive_exit": "\nPress Enter to exit...",
-
         "invalid_group_id": "Invalid Group ID, ignoring.",
         "error_keyring_required": "A keyring backend is required (e.g., 'gnome-keyring' on Linux).",
         "error_secure_storage": "Failed to access secure storage: {}",
         "cleanup_secure_fail": "Failed to clear secure tokens: {}",
-        
         "session_expired_title": "⚠️  Session Expired",
         "session_expired_message": "Your session has been invalidated.\\nThis usually happens when you log in from another browser.\\n\\nPlease log in again to continue.",
         "session_expired_prompt": "Press Enter to start login...",
@@ -97,9 +92,9 @@ STRINGS = {
         "help_cleanup": "Remove auth data and config files",
         "help_lang": "Language (en, ja, zh-TW, zh-CN, yue)",
         "help_verbose": "Enable verbose logging",
-        "help_blog": "Enable Blog Backup mode (all groups supported)"
+        "help_blog": "Enable Blog Backup mode (all groups supported)",
     },
-    'ja': {
+    "ja": {
         "tos_title": "=== 利用規約 ===",
         "tos_warn": "\n【警告】正規以外の手段でのAPIアクセスは利用規約に違反する可能性があります。\n本ツールは教育目的のみで提供されています。自己責任でご利用ください。\n\n公式利用規約: {}\n\n本ツールを使用するには、以下の公式規約（抜粋）に同意する必要があります：\n\n第3条（知的財産権）\n3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。\n\n第8条（禁止事項）\n(16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為\n(17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為",
         "tos_prompt": "\n上記の利用規約に同意しますか？ [y/N]: ",
@@ -116,13 +111,11 @@ STRINGS = {
         "blog_tqdm_downloading": "ダウンロード",
         "blog_start": "メンバー: {} (ID: {}) のブログバックアップを開始します",
         "blog_saved": "保存しました: {} ({})",
-        
         "msg_fetching_members": "メンバーリストを取得中...",
         "msg_select_members": "\n購読中のメンバー：",
         "msg_offline_members": "\n過去に購読/解約済みのメンバー：",
         "msg_id_prompt": "\nメンバーIDを入力 (カンマ区切り, 空欄で全員) > ",
         "msg_no_members": "購読中のメンバーが見つかりませんでした。",
-
         "cleanup_title": "=== クリーンアップウィザード ===",
         "cleanup_warn": "以下の項目が削除されます：\n1. セキュアトークン (システムキーリング)\n2. ブラウザセッション (auth_data ディレクトリ)\n3. 設定ファイル (config_*.json, cli_preferences.json)",
         "cleanup_linux_chrome": "4. (任意) Google Chrome (このツールでインストールされた場合)",
@@ -133,8 +126,9 @@ STRINGS = {
         "cleanup_fail": "削除に失敗しました {}: {}",
         "cleanup_done": "\nクリーンアップ完了！",
         "cleanup_safe_note": "注意: '{}' にダウンロードされたデータは保持されています。\n    削除する場合は、フォルダを手動で削除してください。",
-        "cleanup_linux_chrome_cmd": "\n" + "==================================================" + "\nこのツールでChromeをインストールし、それを削除したい場合：\n    sudo apt remove google-chrome-stable",
-
+        "cleanup_linux_chrome_cmd": "\n"
+        + "=================================================="
+        + "\nこのツールでChromeをインストールし、それを削除したい場合：\n    sudo apt remove google-chrome-stable",
         "setup_title": "=== {} スクレイパー設定 ===",
         "setup_browser": "ログインのためにブラウザを開いています...",
         "setup_auth_dir": "認証ディレクトリを使用中: {}",
@@ -146,7 +140,6 @@ STRINGS = {
         "setup_manual_other": "次のURLからGoogle Chromeをインストールしてください: https://www.google.com/chrome/",
         "setup_login_success": "設定を保存しました！",
         "setup_login_fail": "ログインに失敗しました。",
-
         "run_no_config": "設定が見つかりません。セットアップウィザードを開始します...",
         "run_setup_fail": "セットアップが失敗したか、キャンセルされました。",
         "run_init": "クライアントを初期化中...",
@@ -165,7 +158,6 @@ STRINGS = {
         "run_error": "実行エラー: {}",
         "run_fatal": "\n致命的なエラー: {}",
         "run_interrupted": "\n中断されました。",
-
         "interactive_title": "=== 対話モード ===",
         "interactive_lang": "言語を選択:\n[1] English\n[2] 日本語\n[3] 繁體中文\n[4] 简体中文\n[5] 廣東話\n選択してください (デフォルト: 1): ",
         "interactive_service": "サービスを選択:\n[1] 乃木坂46\n[2] 櫻坂46\n[3] 日向坂46\n選択してください (デフォルト: 1): ",
@@ -174,16 +166,13 @@ STRINGS = {
         "interactive_group_id": "グループIDを入力 (空欄で全スキャン): ",
         "interactive_end": "========================",
         "interactive_exit": "\nEnterキーを押して終了...",
-
         "invalid_group_id": "無効なグループIDです。無視します。",
         "error_keyring_required": "キーリングバックエンドが必要です (例: Linuxでは 'gnome-keyring')。",
         "error_secure_storage": "セキュアストレージへのアクセスに失敗しました: {}",
         "cleanup_secure_fail": "セキュアトークンの削除に失敗しました: {}",
-        
         "session_expired_title": "⚠️  セッションの有効期限切れ",
         "session_expired_message": "セッションが無効になりました。\\nこれは通常、別のブラウザでログインした場合に発生します。\\n\\n続行するには再度ログインしてください。",
         "session_expired_prompt": "Enterキーを押してログインを開始...",
-
         "help_desc": "pysaka CLI - 坂道シリーズ メディアスクレイパー",
         "help_service": "対象サービス (グループ)",
         "help_output": "ダウンロード保存先ディレクトリ",
@@ -194,9 +183,9 @@ STRINGS = {
         "help_cleanup": "認証データと設定を削除",
         "help_lang": "言語 (en, ja, zh-TW, zh-CN, yue)",
         "help_verbose": "詳細ログを有効化",
-        "help_blog": "ブログバックアップモードを有効化 (全グループ対応)"
+        "help_blog": "ブログバックアップモードを有効化 (全グループ対応)",
     },
-    'zh-TW': {
+    "zh-TW": {
         "tos_title": "=== 服務條款 ===",
         "tos_warn": "\n【警告】透過非官方手段存取 API 可能違反服務條款。\n本工具僅供教學用途。請自行承擔風險。\n\n官方服務條款: {}\n\n使用本工具前，您必須同意以下官方條款（節錄）：\n\n[日文原文]\n第3条（知的財産権）\n3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。\n\n第8条（禁止事項）\n(16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為\n(17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為\n\n------------------------\n[翻譯 (僅供參考)]\n* 以日文原文為準\n\n第3條（智慧財產權）\n3. 除本公司另有規定外，禁止客戶對本內容進行複製、改編、散布、公開傳輸等行為。\n\n第8條（禁止事項）\n(16) 透過本公司指定之存取方法以外的手段存取本服務，或嘗試存取本服務的行為。\n(17) 使用自動化手段（包含網路爬蟲及類似技術）存取本服務，或嘗試存取本服務的行為。",
         "tos_prompt": "\n您是否同意上述服務條款？ [y/N]: ",
@@ -213,13 +202,11 @@ STRINGS = {
         "blog_tqdm_downloading": "下載中",
         "blog_start": "正在開始備份成員：{} (ID: {})",
         "blog_saved": "已儲存：{} ({})",
-
         "msg_fetching_members": "正在讀取成員名單...",
         "msg_select_members": "\n目前訂閱成員：",
         "msg_offline_members": "\n過往訂閱/已退訂成員：",
         "msg_id_prompt": "\n請輸入成員 ID (以逗號分隔，留空則全選) > ",
         "msg_no_members": "找不到已訂閱成員。",
-
         "cleanup_title": "=== 清除工具精靈 ===",
         "cleanup_warn": "此操作將會移除：\n1. 安全令牌 (系統鑰匙圈)\n2. 瀏覽器工作階段 (auth_data 目錄)\n3. 設定檔 (config_*.json, cli_preferences.json)",
         "cleanup_linux_chrome": "4. (選用) Google Chrome (若是透過此工具安裝)",
@@ -230,8 +217,9 @@ STRINGS = {
         "cleanup_fail": "無法移除 {}: {}",
         "cleanup_done": "\n清除完成！",
         "cleanup_safe_note": "注意：您下載在 '{}' 的資料已保留。\n    若要移除，請手動刪除該資料夾。",
-        "cleanup_linux_chrome_cmd": "\n" + "==================================================" + "\n如果 Chrome 是由本工具安裝且您希望將其移除：\n    請執行 sudo apt remove google-chrome-stable",
-
+        "cleanup_linux_chrome_cmd": "\n"
+        + "=================================================="
+        + "\n如果 Chrome 是由本工具安裝且您希望將其移除：\n    請執行 sudo apt remove google-chrome-stable",
         "setup_title": "=== {} 爬蟲設定 ===",
         "setup_browser": "正在開啟瀏覽器以進行登入...",
         "setup_auth_dir": "使用已儲存的驗證目錄：{}",
@@ -243,7 +231,6 @@ STRINGS = {
         "setup_manual_other": "請從此處安裝 Google Chrome：https://www.google.com/chrome/",
         "setup_login_success": "設定已儲存！",
         "setup_login_fail": "登入失敗。",
-
         "run_no_config": "找不到設定檔。正在啟動設定精靈...",
         "run_setup_fail": "設定失敗或已取消。",
         "run_init": "正在初始化客戶端...",
@@ -262,7 +249,6 @@ STRINGS = {
         "run_error": "執行錯誤：{}",
         "run_fatal": "\n嚴重錯誤：{}",
         "run_interrupted": "\n已中斷。",
-
         "interactive_title": "=== 互動模式 ===",
         "interactive_lang": "選擇語言：\n[1] English\n[2] 日本語\n[3] 繁體中文\n[4] 简体中文\n[5] 廣東話\n請輸入選項 (預設: 1): ",
         "interactive_service": "選擇服務：\n[1] 乃木坂46\n[2] 櫻坂46\n[3] 日向坂46\n請輸入選項 (預設: 1): ",
@@ -271,16 +257,13 @@ STRINGS = {
         "interactive_group_id": "請輸入群組 ID (留空以掃描全部): ",
         "interactive_end": "========================",
         "interactive_exit": "\n按 Enter 鍵離開...",
-
         "invalid_group_id": "Group ID 無效，已忽略。",
         "error_keyring_required": "需要 Keyring Backend (例如 Linux 上的 'gnome-keyring')。",
         "error_secure_storage": "無法存取安全儲存區：{}",
         "cleanup_secure_fail": "無法清除安全權杖 (Secure Tokens)：{}",
-        
         "session_expired_title": "⚠️  工作階段已過期",
         "session_expired_message": "您的工作階段已失效。\\n這通常是因為您在其他瀏覽器進行了登入。\\n\\n請重新登入以繼續。",
         "session_expired_prompt": "按 Enter 鍵開始登入...",
-
         "help_desc": "pysaka CLI - 坂道系列媒體爬蟲",
         "help_service": "目標服務 (團體)",
         "help_output": "下載內容輸出目錄",
@@ -291,9 +274,9 @@ STRINGS = {
         "help_cleanup": "移除驗證資料與設定檔",
         "help_lang": "語言 (en, ja, zh-TW, zh-CN, yue)",
         "help_verbose": "啟用詳細日誌",
-        "help_blog": "啟用部落格備份模式 (全團體支援)"
+        "help_blog": "啟用部落格備份模式 (全團體支援)",
     },
-    'zh-CN': {
+    "zh-CN": {
         "tos_title": "=== 服务条款 ===",
         "tos_warn": "\n【警告】通过非官方手段访问 API 可能违反服务条款。\n本工具仅供教学用途。请自行承担风险。\n\n官方服务条款: {}\n\n使用本工具前，您必须同意以下官方条款（节录）：\n\n[日文原文]\n第3条（知的財産権）\n3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。\n\n第8条（禁止事項）\n(16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為\n(17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為\n\n------------------------\n[翻译 (仅供参考)]\n* 以日文原文为准\n\n第3条（知识产权）\n3. 除本公司另有规定外，禁止客户对本内容进行复制、改编、散布、公开传输等行为。\n\n第8条（禁止事项）\n(16) 通过本公司指定之访问方法以外的手段访问本服务，或尝试访问本服务的行为。\n(17) 使用自动化手段（包括网络爬虫及类似技术）访问本服务，或尝试访问本服务的行为。",
         "tos_prompt": "\n您是否同意上述服务条款？ [y/N]: ",
@@ -310,13 +293,11 @@ STRINGS = {
         "blog_tqdm_downloading": "下载中",
         "blog_start": "正在开始备份成员：{} (ID: {})",
         "blog_saved": "已保存：{} ({})",
-
         "msg_fetching_members": "正在获取成员列表...",
         "msg_select_members": "\n当前订阅成员：",
         "msg_offline_members": "\n过往订阅/已退订成员：",
         "msg_id_prompt": "\n请输入成员 ID (以逗号分隔，留空则全选) > ",
         "msg_no_members": "未找到已订阅成员。",
-
         "cleanup_title": "=== 清理向导 ===",
         "cleanup_warn": "此操作将删除：\n1. 安全令牌 (系统密钥链)\n2. 浏览器会话 (auth_data 目录)\n3. 配置文件 (config_*.json, cli_preferences.json)",
         "cleanup_linux_chrome": "4. (可选) Google Chrome (如果是通过此工具安装的)",
@@ -327,8 +308,9 @@ STRINGS = {
         "cleanup_fail": "无法删除 {}: {}",
         "cleanup_done": "\n清理完成！",
         "cleanup_safe_note": "注意：您下载在 '{}' 的数据已保留。\n    如果需要删除，请手动删除该文件夹。",
-        "cleanup_linux_chrome_cmd": "\n" + "==================================================" + "\n如果 Chrome 是由本工具安装且您希望将其删除：\n    请运行 sudo apt remove google-chrome-stable",
-
+        "cleanup_linux_chrome_cmd": "\n"
+        + "=================================================="
+        + "\n如果 Chrome 是由本工具安装且您希望将其删除：\n    请运行 sudo apt remove google-chrome-stable",
         "setup_title": "=== {} 爬虫设置 ===",
         "setup_browser": "正在打开浏览器以进行登录...",
         "setup_auth_dir": "使用持久化验证目录：{}",
@@ -340,7 +322,6 @@ STRINGS = {
         "setup_manual_other": "请从此链接安装 Google Chrome：https://www.google.com/chrome/",
         "setup_login_success": "配置已保存！",
         "setup_login_fail": "登录失败。",
-
         "run_no_config": "未找到配置文件。正在启动设置向导...",
         "run_setup_fail": "设置失败或已取消。",
         "run_init": "正在初始化客户端...",
@@ -359,7 +340,6 @@ STRINGS = {
         "run_error": "运行错误：{}",
         "run_fatal": "\n致命错误：{}",
         "run_interrupted": "\n已中断。",
-
         "interactive_title": "=== 交互模式 ===",
         "interactive_lang": "选择语言：\n[1] English\n[2] 日本語\n[3] 繁體中文\n[4] 简体中文\n[5] 廣東話\n输入选项 (默认: 1): ",
         "interactive_service": "选择服务：\n[1] 乃木坂46\n[2] 樱坂46\n[3] 日向坂46\n输入选项 (默认: 1): ",
@@ -368,16 +348,13 @@ STRINGS = {
         "interactive_group_id": "输入群组 ID (留空以扫描全部): ",
         "interactive_end": "========================",
         "interactive_exit": "\n按回车键退出...",
-
         "invalid_group_id": "Group ID 无效，已忽略。",
         "error_keyring_required": "需要 Keyring Backend (例如 Linux 上的 'gnome-keyring')。",
         "error_secure_storage": "无法访问安全存储：{}",
         "cleanup_secure_fail": "无法清除安全令牌：{}",
-        
         "session_expired_title": "⚠️  会话已过期",
         "session_expired_message": "您的会话已失效。\\n这通常是因为您在其他浏览器进行了登录。\\n\\n请重新登录以继续。",
         "session_expired_prompt": "按回车键开始登录...",
-
         "help_desc": "pysaka CLI - 坂道系列媒体爬虫",
         "help_service": "目标服务 (团体)",
         "help_output": "下载内容输出目录",
@@ -388,9 +365,9 @@ STRINGS = {
         "help_cleanup": "删除验证数据和配置文件",
         "help_lang": "语言 (en, ja, zh-TW, zh-CN, yue)",
         "help_verbose": "启用详细日志",
-        "help_blog": "启用博客备份模式 (全团体支持)"
+        "help_blog": "启用博客备份模式 (全团体支持)",
     },
-    'yue': {
+    "yue": {
         "tos_title": "=== 服務條款 ===",
         "tos_warn": "\n【警告】用非官方手段 Access 個 API 可能會違反服務條款\n呢個工具係教學用途。風險自負。\n\n官方服務條款: {}\n\n用呢個工具之前，你要同意以下官方條款（節錄）：\n\n[日文原文]\n第3条（知的財産権）\n3. 当社が別に定める場合を除き、お客様が本コンテンツを複製、翻案、頒布、公衆送信等することは禁止します。\n\n第8条（禁止事項）\n(16) 当社が指定するアクセス方法以外の手段で本サービスにアクセスし、またはアクセスを試みる行為\n(17) 自動化された手段（クローラおよび類似の技術を含む）を用いて本サービスにアクセスし、またはアクセスを試みる行為\n\n------------------------\n[翻譯 (參考用)]\n* 一切以日文原文為準\n\n第3條（知識產權）\n3. 除咗本公司另有規定之外，禁止客戶將本內容複製、改編、散布、或者公開傳輸等。\n\n第8條（禁止事項）\n(16) 用本公司指定存取方法以外嘅手段去存取本服務，或者嘗試存取本服務嘅行為。\n(17) 用自動化手段（包括爬蟲同埋類似嘅技術）去存取本服務，或者嘗試存取本服務嘅行為。",
         "tos_prompt": "\n你同唔同意以上服務條款？ [y/N]: ",
@@ -407,13 +384,11 @@ STRINGS = {
         "blog_tqdm_downloading": "下載緊",
         "blog_start": "開始備份緊成員：{} (ID: {})",
         "blog_saved": "儲存咗：{} ({})",
-        
         "msg_fetching_members": "攞緊成員名單...",
         "msg_select_members": "\n訂閱咗嘅成員：",
         "msg_offline_members": "\n以前訂過/退咗訂嘅成員：",
         "msg_id_prompt": "\n請輸入成員 ID (用逗號分開，留空就全選) > ",
         "msg_no_members": "搵唔到訂閱咗嘅成員。",
-
         "cleanup_title": "=== 清理精靈 ===",
         "cleanup_warn": "這將會移除：\n1. 安全令牌 (系統鑰匙圈)\n2. 瀏覽器 Session (auth_data 目錄)\n3. 設定檔 (config_*.json, cli_preferences.json)",
         "cleanup_linux_chrome": "4. (可選) Google Chrome (如果係由呢個工具安裝嘅話)",
@@ -424,8 +399,9 @@ STRINGS = {
         "cleanup_fail": "移除唔到 {}: {}",
         "cleanup_done": "\n清理完成！",
         "cleanup_safe_note": "註：你下載喺 '{}' 嘅資料已經保留咗。\n    如果你想移除埋，請手動 delete 個 folder。",
-        "cleanup_linux_chrome_cmd": "\n" + "==================================================" + "\n如果 Chrome 係由呢個工具安裝而你想移除佢：\n    請執行 sudo apt remove google-chrome-stable",
-
+        "cleanup_linux_chrome_cmd": "\n"
+        + "=================================================="
+        + "\n如果 Chrome 係由呢個工具安裝而你想移除佢：\n    請執行 sudo apt remove google-chrome-stable",
         "setup_title": "=== {} 爬蟲設定 ===",
         "setup_browser": "打開緊瀏覽器準備登入...",
         "setup_auth_dir": "用緊 Persistent 驗證目錄：{}",
@@ -437,7 +413,6 @@ STRINGS = {
         "setup_manual_other": "請去呢度安裝 Google Chrome：https://www.google.com/chrome/",
         "setup_login_success": "Config 已儲存！",
         "setup_login_fail": "登入失敗。",
-
         "run_no_config": "搵唔到設定檔。啟動緊設定精靈...",
         "run_setup_fail": "設定失敗或者取消咗。",
         "run_init": "Client 初始化中...",
@@ -456,7 +431,6 @@ STRINGS = {
         "run_error": "執行錯誤：{}",
         "run_fatal": "\n嚴重錯誤：{}",
         "run_interrupted": "\n已中斷。",
-
         "interactive_title": "=== 互動模式 ===",
         "interactive_lang": "揀語言：\n[1] English\n[2] 日本語\n[3] 繁體中文\n[4] 简体中文\n[5] 廣東話\n請輸入選項 (預設: 1): ",
         "interactive_service": "揀服務：\n[1] 乃木坂46\n[2] 櫻坂46\n[3] 日向坂46\n請輸入選項 (預設: 1): ",
@@ -465,16 +439,13 @@ STRINGS = {
         "interactive_group_id": "請輸入 Group ID (留空就 Scan 全部): ",
         "interactive_end": "========================",
         "interactive_exit": "\n撳 Enter 離開...",
-
         "invalid_group_id": "Group ID 無效，Ignore 咗。",
         "error_keyring_required": "需要 Keyring Backend (例如 Linux 上面要 'gnome-keyring')。",
         "error_secure_storage": "存取唔到安全儲存區：{}",
         "cleanup_secure_fail": "清除唔到安全 Token：{}",
-        
         "session_expired_title": "⚠️  Session 過咗期",
         "session_expired_message": "你嘅 Session 已經無效。\\n通常係因為你喺第二個瀏覽器登入咗。\\n\\n請重新登入繼續。",
         "session_expired_prompt": "撳 Enter 開始登入...",
-
         "help_desc": "pysaka CLI - 坂道系列 Media Scraper",
         "help_service": "目標服務 (Group)",
         "help_output": "下載內容輸出目錄",
@@ -485,21 +456,24 @@ STRINGS = {
         "help_cleanup": "移除驗證資料同 Config",
         "help_lang": "語言 (en, ja, zh-TW, zh-CN, yue)",
         "help_verbose": "開詳細 Log",
-        "help_blog": "開 Blog 備份模式 (全 Group 都 Support)"
-    }
+        "help_blog": "開 Blog 備份模式 (全 Group 都 Support)",
+    },
 }
+
 
 def set_language(lang: str):
     global _CURRENT_LANG
     _CURRENT_LANG = lang
 
+
 def get_language() -> str:
     return _CURRENT_LANG
 
+
 def get_string(key: str) -> str:
-    lang_dict = STRINGS.get(_CURRENT_LANG, STRINGS['en'])
+    lang_dict = STRINGS.get(_CURRENT_LANG, STRINGS["en"])
     val = lang_dict.get(key)
     if val is None:
         # Fallback to English
-        val = STRINGS['en'].get(key, key)
+        val = STRINGS["en"].get(key, key)
     return val
