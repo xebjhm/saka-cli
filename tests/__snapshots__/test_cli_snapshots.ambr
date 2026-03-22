@@ -1,9 +1,10 @@
 # serializer version: 1
 # name: test_cli_help_snapshot
   '''
-  usage: pytest [-h] [-s {nogizaka46,sakurazaka46,hinatazaka46}] [-o OUTPUT]
-                [-i] [--include-offline] [-g GROUP] [-m [MEMBERS ...]]
-                [--cleanup] [--lang {en,ja,zh-TW,zh-CN,yue}] [-v] [--blog]
+  usage: __main__.py [-h] [-s {nogizaka46,sakurazaka46,hinatazaka46}]
+                     [-o OUTPUT] [-i] [--include-offline] [-g GROUP]
+                     [-m [MEMBERS ...]] [--cleanup]
+                     [--lang {en,ja,zh-TW,zh-CN,yue}] [-v] [--blog]
 
   pysaka CLI - Sakamichi Series Media Scraper
 
@@ -42,6 +43,6 @@
       Enter choice (default: 1):
     ''',
     'setup_login_success': 'Config saved!',
-    'welcome': 'welcome',
+    'tos_title': '=== Terms of Service ===',
   })
 # ---

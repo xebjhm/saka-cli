@@ -30,8 +30,6 @@ def setup_logging(verbose: bool = False):
 
     log_level = logging.DEBUG if verbose else logging.INFO
 
-    log_level = logging.DEBUG if verbose else logging.INFO
-
     # 2. Structlog Configuration (Override or Supplement)
     # Even if pysaka configured structlog with cache=True, we can control RENDERING via the Handler Formatter.
 
@@ -97,8 +95,8 @@ def setup_logging(verbose: bool = False):
             wrapper_class=structlog.stdlib.BoundLogger,
             cache_logger_on_first_use=True,
         )
-    except Exception:
-        pass  # Ignore if already configured/immutable issues, as Handler handles rendering.
+    except Exception as e:
+        logging.getLogger(__name__).debug(f"structlog reconfigure skipped: {e}")
 
     # 3. Third-party Library Noise Reduction
     # Unless verbose, silence library info logs

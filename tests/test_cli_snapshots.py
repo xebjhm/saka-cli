@@ -44,7 +44,7 @@ async def test_setup_wizard_prompts(snapshot):
 
     # Just snapshot the prompt strings to ensure they don't drift unintendedly
     prompts = {
-        "welcome": get_string("welcome"),
+        "tos_title": get_string("tos_title"),
         "setup_login_success": get_string("setup_login_success"),
         "interactive_lang": get_string("interactive_lang"),
     }

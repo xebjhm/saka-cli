@@ -381,8 +381,8 @@ class SakaCLI:
                 try:
                     TokenManager().delete_session(g.value)
                     cleaned_tokens += 1
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Could not delete session for {g.value}: {e}")
 
             if cleaned_tokens > 0:
                 logger.info(
@@ -583,7 +583,9 @@ class SakaCLI:
             )
 
             async with aiohttp.ClientSession() as session:
-                assert self.client is not None
+                if self.client is None:
+                    logger.error("Client not initialized. Please run setup first.")
+                    return []
                 groups = await self.client.get_groups(
                     session, include_inactive=include_offline
                 )
