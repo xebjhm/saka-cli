@@ -5,9 +5,9 @@
                      [-o OUTPUT] [-i] [--include-offline] [-g GROUP]
                      [-m [MEMBERS ...]] [--cleanup]
                      [--lang {en,ja,zh-TW,zh-CN,yue}] [-v] [--blog]
-
+  
   pysaka CLI - Sakamichi Series Media Scraper
-
+  
   options:
     -h, --help            show this help message and exit
     -s {nogizaka46,sakurazaka46,hinatazaka46}, --service {nogizaka46,sakurazaka46,hinatazaka46}
@@ -25,7 +25,7 @@
                           Language (en, ja, zh-TW, zh-CN, yue)
     -v, --verbose         Enable verbose logging
     --blog                Enable Blog Backup mode (all groups supported)
-
+  
   '''
 # ---
 # name: test_cli_version_snapshot
@@ -40,7 +40,7 @@
       [3] 繁體中文
       [4] 简体中文
       [5] 廣東話
-      Enter choice (default: 1):
+      Enter choice (default: 1): 
     ''',
     'setup_login_success': 'Config saved!',
     'tos_title': '=== Terms of Service ===',
