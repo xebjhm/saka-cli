@@ -23,8 +23,9 @@ from pysaka import (
 from saka_cli.logging_setup import setup_logging
 from saka_cli.strings import get_string, set_language, get_language
 
-# Logger initialized in main()
-logger = None  # Placeholder
+# Logger created at import as a lazy structlog proxy (safe before configuration);
+# main() rebinds it after setup_logging() so it picks up the final config.
+logger = structlog.get_logger()
 
 
 def detect_system_language():
