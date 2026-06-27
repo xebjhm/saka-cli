@@ -1,10 +1,9 @@
 # serializer version: 1
 # name: test_cli_help_snapshot
   '''
-  usage: __main__.py [-h] [-s {nogizaka46,sakurazaka46,hinatazaka46}]
-                     [-o OUTPUT] [-i] [--include-offline] [-g GROUP]
-                     [-m [MEMBERS ...]] [--cleanup]
-                     [--lang {en,ja,zh-TW,zh-CN,yue}] [-v] [--blog]
+  usage: saka-cli [-h] [-s {nogizaka46,sakurazaka46,hinatazaka46}] [-o OUTPUT]
+                  [-i] [--include-offline] [-g GROUP] [-m [MEMBERS ...]]
+                  [--cleanup] [--lang {en,ja,zh-TW,zh-CN,yue}] [-v] [--blog]
   
   pysaka CLI - Sakamichi Series Media Scraper
   

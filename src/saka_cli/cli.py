@@ -1118,7 +1118,9 @@ h1 {{ margin-bottom: 0.5em; }}
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description=get_string("help_desc"))
+    parser = argparse.ArgumentParser(
+        prog="saka-cli", description=get_string("help_desc")
+    )
     # Updated order: nogizaka, sakurazaka, hinatazaka
     parser.add_argument(
         "-s",
