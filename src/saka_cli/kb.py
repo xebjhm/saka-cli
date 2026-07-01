@@ -381,5 +381,7 @@ def run_kb_command(
         logger.info(get_string("kb_index_done").format(count))
 
     if ask:
+        if not kb_index:
+            logger.warning(get_string("kb_ask_without_index"))
         answer = asyncio.run(kb.ask(ask))
         _render_answer(kb, answer, kb_format)

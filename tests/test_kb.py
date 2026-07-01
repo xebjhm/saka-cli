@@ -348,7 +348,10 @@ def test_run_kb_command_ask_json_format_prints_payload(
         no_evidence=False,
     )
 
-    with patch("saka_cli.kb.KnowledgeBase") as MockKB:
+    with (
+        patch("saka_cli.kb.KnowledgeBase") as MockKB,
+        patch("saka_cli.kb.logger"),
+    ):
         instance = MockKB.return_value
         instance.ask = AsyncMock(return_value=answer)
         instance.registry.get.return_value = None
@@ -396,3 +399,35 @@ def test_run_kb_command_ask_no_evidence_logs_message(
     mock_logger.info.assert_any_call("No evidence found for this question.")
     captured = capsys.readouterr()
     assert captured.out == ""
+
+
+def test_run_kb_command_ask_without_index_warns(tmp_path: Path, members_dir: Path):
+    from pysaka.knowledge.models import Answer
+
+    answer = Answer(sentences=[], citations=[], no_evidence=True)
+
+    with (
+        patch("saka_cli.kb.KnowledgeBase") as MockKB,
+        patch("saka_cli.kb.logger") as mock_logger,
+    ):
+        instance = MockKB.return_value
+        instance.ask = AsyncMock(return_value=answer)
+
+        run_kb_command(
+            output_dir=tmp_path,
+            service=_SERVICE,
+            members_dir=members_dir,
+            ask="テスト",
+            kb_index=False,
+            kb_format="text",
+        )
+
+    # Verify warning is logged when ask is set but kb_index is not
+    mock_logger.warning.assert_called_once()
+    warning_call = mock_logger.warning.call_args[0][0]
+    assert (
+        "No index was built this run" in warning_call
+        or "インデックスが構築されていません" in warning_call
+        or "未構建索引" in warning_call
+        or "冇構建索引" in warning_call
+    )

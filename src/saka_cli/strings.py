@@ -101,6 +101,7 @@ STRINGS = {
         "kb_index_start": "Building knowledge base index for {}...",
         "kb_index_done": "Indexed {} document(s).",
         "kb_no_evidence": "No evidence found for this question.",
+        "kb_ask_without_index": 'Warning: No index was built this run. Run `saka-cli --service <svc> --kb-index --ask "..."` together to build the index first, or answers will be empty.',
         "kb_error_members_required": "--kb-members DIR is required for --ask/--kb-index.",
     },
     "ja": {
@@ -201,6 +202,7 @@ STRINGS = {
         "kb_index_start": "{} のナレッジベースインデックスを構築中...",
         "kb_index_done": "{} 件のドキュメントをインデックスしました。",
         "kb_no_evidence": "この質問に対する根拠が見つかりませんでした。",
+        "kb_ask_without_index": '警告: 今回の実行ではインデックスが構築されていません。まずインデックスを構築してから質問してください。`saka-cli --service <svc> --kb-index --ask "..."` を一緒に実行してください。そうしないと、回答が空になります。',
         "kb_error_members_required": "--ask/--kb-index には --kb-members DIR が必要です。",
     },
     "zh-TW": {
@@ -301,6 +303,7 @@ STRINGS = {
         "kb_index_start": "正在為 {} 建立知識庫索引...",
         "kb_index_done": "已索引 {} 份文件。",
         "kb_no_evidence": "找不到此問題的相關證據。",
+        "kb_ask_without_index": '警告: 本次執行未建立索引。請先執行 `saka-cli --service <svc> --kb-index --ask "..."` 來建立索引，否則回答將為空。',
         "kb_error_members_required": "--ask/--kb-index 需要 --kb-members DIR。",
     },
     "zh-CN": {
@@ -401,6 +404,7 @@ STRINGS = {
         "kb_index_start": "正在为 {} 构建知识库索引...",
         "kb_index_done": "已索引 {} 份文档。",
         "kb_no_evidence": "未找到此问题的相关证据。",
+        "kb_ask_without_index": '警告: 本次运行未构建索引。请先运行 `saka-cli --service <svc> --kb-index --ask "..."` 以构建索引，否则答案将为空。',
         "kb_error_members_required": "--ask/--kb-index 需要 --kb-members DIR。",
     },
     "yue": {
@@ -501,6 +505,7 @@ STRINGS = {
         "kb_index_start": "幫 {} 建緊知識庫索引...",
         "kb_index_done": "索引咗 {} 份文件。",
         "kb_no_evidence": "搵唔到呢個問題嘅相關證據。",
+        "kb_ask_without_index": '警告: 呢次運行冇構建索引。請先執行 `saka-cli --service <svc> --kb-index --ask "..."` 嚟構建索引，唔係答案會係空嘅。',
         "kb_error_members_required": "--ask/--kb-index 需要 --kb-members DIR。",
     },
 }
