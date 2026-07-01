@@ -4,6 +4,8 @@
   usage: saka-cli [-h] [-s {nogizaka46,sakurazaka46,hinatazaka46}] [-o OUTPUT]
                   [-i] [--include-offline] [-g GROUP] [-m [MEMBERS ...]]
                   [--cleanup] [--lang {en,ja,zh-TW,zh-CN,yue}] [-v] [--blog]
+                  [--ask QUERY] [--kb-index] [--kb-format {text,json,brief}]
+                  [--kb-members DIR] [--kb-aliases FILE]
   
   pysaka CLI - Sakamichi Series Media Scraper
   
@@ -24,6 +26,14 @@
                           Language (en, ja, zh-TW, zh-CN, yue)
     -v, --verbose         Enable verbose logging
     --blog                Enable Blog Backup mode (all groups supported)
+    --ask QUERY           Ask a question against the local knowledge base
+    --kb-index            Build the local knowledge base index from synced data
+    --kb-format {text,json,brief}
+                          Output format for --ask results (text, json, brief)
+    --kb-members DIR      Directory containing <service>.json member roster
+                          files
+    --kb-aliases FILE     Optional curated aliases JSON file for the knowledge
+                          base
   
   '''
 # ---

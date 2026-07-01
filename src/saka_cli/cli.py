@@ -20,6 +20,7 @@ from pysaka import (
     SessionExpiredError,
 )
 
+from saka_cli.kb import run_kb_command
 from saka_cli.logging_setup import setup_logging
 from saka_cli.strings import get_string, set_language, get_language
 
@@ -1153,6 +1154,23 @@ def get_parser():
         "-v", "--verbose", action="store_true", help=get_string("help_verbose")
     )
     parser.add_argument("--blog", action="store_true", help=get_string("help_blog"))
+    parser.add_argument("--ask", type=str, metavar="QUERY", help=get_string("help_ask"))
+    parser.add_argument(
+        "--kb-index", action="store_true", help=get_string("help_kb_index")
+    )
+    parser.add_argument(
+        "--kb-format",
+        type=str,
+        choices=["text", "json", "brief"],
+        default="text",
+        help=get_string("help_kb_format"),
+    )
+    parser.add_argument(
+        "--kb-members", type=str, metavar="DIR", help=get_string("help_kb_members")
+    )
+    parser.add_argument(
+        "--kb-aliases", type=str, metavar="FILE", help=get_string("help_kb_aliases")
+    )
     return parser
 
 
@@ -1218,6 +1236,29 @@ def main():
     output_dir = args.output
     include_offline = args.include_offline
     mode = "blog" if args.blog else "message"
+
+    # Knowledge-base harness (--ask / --kb-index): bypasses the sync/wizard path
+    # entirely, since it only reads already-synced data.
+    if args.service and (args.ask or args.kb_index):
+        if not args.kb_members:
+            logger.error(get_string("kb_error_members_required"))
+            return
+        try:
+            run_kb_command(
+                output_dir=Path(output_dir or DEFAULT_OUTPUT),
+                service=args.service,
+                members_dir=Path(args.kb_members),
+                ask=args.ask,
+                kb_index=args.kb_index,
+                kb_format=args.kb_format,
+                aliases_file=Path(args.kb_aliases) if args.kb_aliases else None,
+            )
+        except KeyboardInterrupt:
+            logger.warning(get_string("run_interrupted"))
+        except Exception as e:
+            logger.critical(get_string("run_fatal").format(e))
+            logger.debug(traceback.format_exc())
+        return
 
     # Parse group IDs (comma or space-separated)
     group_ids = []
