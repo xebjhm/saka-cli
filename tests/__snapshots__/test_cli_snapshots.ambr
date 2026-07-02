@@ -6,6 +6,8 @@
                   [--cleanup] [--lang {en,ja,zh-TW,zh-CN,yue}] [-v] [--blog]
                   [--ask QUERY] [--kb-index] [--kb-format {text,json,brief}]
                   [--kb-members DIR] [--kb-aliases FILE]
+                  [--llm-backend {cloud,local}] [--llm-base-url URL]
+                  [--llm-model NAME] [--hw-suggest]
   
   pysaka CLI - Sakamichi Series Media Scraper
   
@@ -34,6 +36,13 @@
                           files
     --kb-aliases FILE     Optional curated aliases JSON file for the knowledge
                           base
+    --llm-backend {cloud,local}
+                          LLM backend for --ask: cloud (Gemini) or local
+                          (Ollama/llama.cpp)
+    --llm-base-url URL    Base URL for the local LLM backend (OpenAI-compatible)
+    --llm-model NAME      Model name to use with the selected LLM backend
+    --hw-suggest          Detect hardware and suggest a local-vs-cloud LLM
+                          backend, then exit
   
   '''
 # ---

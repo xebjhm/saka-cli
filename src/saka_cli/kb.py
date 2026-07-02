@@ -5,7 +5,7 @@ tools, agent, validator) into a single `KnowledgeBase` object that `saka-cli`'s
 `--kb-index` / `--ask` flags drive: scan a group's synced `output/<display>/` tree,
 build a searchable index, and answer natural-language questions with cited evidence.
 
-The default backends (`OnnxEmbedder`, `NumpyVectorStore`, `GeminiLLMClient`) are
+The default backends (`OnnxEmbedder`, `NumpyVectorStore`, `OpenAICompatLLMClient`) are
 lazily constructed on first use so importing this module -- or building a
 `KnowledgeBase` with fakes injected for tests -- never touches a model file or the
 network. `pysaka.knowledge.backends` requires the `pysaka[embeddings]` extra.
@@ -20,7 +20,6 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-import aiohttp
 import structlog
 
 from pysaka import Group
@@ -30,7 +29,6 @@ from pysaka.knowledge.aliases import AliasTable
 from pysaka.knowledge.chunking import chunk_documents
 from pysaka.knowledge.ingest import ingest_blog, ingest_messages
 from pysaka.knowledge.lexical import PureLexicalIndex
-from pysaka.knowledge.llm import LLMResponse, ToolCall
 from pysaka.knowledge.mentions import MentionDetector
 from pysaka.knowledge.models import Answer, Citation, Document, Scope, SourceRef
 from pysaka.knowledge.registry import MemberRegistry
@@ -39,127 +37,66 @@ from pysaka.knowledge.store import DocumentStore
 from pysaka.knowledge.tools import ToolRunner
 from pysaka.knowledge.validator import validate
 
+from saka_cli.llm_backends import OpenAICompatLLMClient
 from saka_cli.strings import get_string
 
 logger = structlog.get_logger()
 
-_GEMINI_ENDPOINT = (
-    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+# Gemini's OpenAI-compatibility layer (https://ai.google.dev/gemini-api/docs/openai) -- an
+# OpenAICompatLLMClient pointed here needs no Gemini-specific request/response mapping, which
+# is what replaced the old hand-rolled `GeminiLLMClient` (native `generateContent` mapping).
+GEMINI_OPENAI_COMPAT_BASE_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/openai"
 )
-_DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
+DEFAULT_CLOUD_MODEL = "gemini-2.5-flash"
+DEFAULT_LOCAL_BASE_URL = "http://localhost:11434/v1"
+DEFAULT_LOCAL_MODEL = "qwen2.5:14b"
 _SNIPPET_LEN = 160
 
 
-class GeminiLLMClient:
-    """Minimal `LLMClient` adapter over Google's Gemini `generateContent` REST API.
+def default_cloud_llm(
+    model: str | None = None, api_key: str | None = None
+) -> OpenAICompatLLMClient:
+    """Build the default cloud `LLMClient`: Gemini via its OpenAI-compatible endpoint.
 
-    Deliberately small: just enough request/response mapping to drive
-    `KnowledgeAgent`'s tool-calling loop against Gemini. Reads the API key from the
-    `GEMINI_API_KEY` env var. NOT unit-tested here -- it needs a live network call and
-    a real key; `tests/test_kb.py` exercises `KnowledgeBase.ask()` via the injected
-    `pysaka.knowledge.llm.FakeLLMClient` instead.
+    `model` defaults to the `SAKA_KB_LLM_MODEL` env var, then `DEFAULT_CLOUD_MODEL`.
+    `api_key` defaults to the `GEMINI_API_KEY` env var (may end up `None`, e.g. for tests
+    that never actually call `.chat()`).
     """
-
-    def __init__(
-        self, model: str = _DEFAULT_GEMINI_MODEL, api_key: str | None = None
-    ) -> None:
-        self._model = model
-        self._api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
-
-    async def chat(
-        self, messages: list[dict], tools: list[dict] | None = None
-    ) -> LLMResponse:
-        if not self._api_key:
-            raise RuntimeError("GEMINI_API_KEY is not set; cannot call the Gemini API.")
-        payload = _to_gemini_payload(messages, tools)
-        url = _GEMINI_ENDPOINT.format(model=self._model)
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url, params={"key": self._api_key}, json=payload
-            ) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-        return _parse_gemini_response(data)
+    return OpenAICompatLLMClient(
+        base_url=GEMINI_OPENAI_COMPAT_BASE_URL,
+        model=model or os.environ.get("SAKA_KB_LLM_MODEL", DEFAULT_CLOUD_MODEL),
+        api_key=api_key or os.environ.get("GEMINI_API_KEY"),
+    )
 
 
-def _to_gemini_payload(messages: list[dict], tools: list[dict] | None) -> dict:
-    """Map the agent's generic `messages`/`tools` shape to a Gemini `generateContent` body."""
-    system_text: str | None = None
-    contents: list[dict] = []
-    for msg in messages:
-        role = msg.get("role")
-        if role == "system":
-            system_text = msg.get("content")
-        elif role == "user":
-            contents.append(
-                {"role": "user", "parts": [{"text": msg.get("content", "")}]}
-            )
-        elif role == "assistant":
-            calls = msg.get("tool_calls") or []
-            if calls:
-                parts = [
-                    {"functionCall": {"name": c["name"], "args": c["arguments"]}}
-                    for c in calls
-                ]
-            else:
-                parts = [{"text": msg.get("content", "")}]
-            contents.append({"role": "model", "parts": parts})
-        elif role == "tool":
-            contents.append(
-                {
-                    "role": "function",
-                    "parts": [{"functionResponse": _tool_response(msg)}],
-                }
-            )
-    payload: dict = {"contents": contents}
-    if system_text:
-        payload["systemInstruction"] = {"parts": [{"text": system_text}]}
-    if tools:
-        payload["tools"] = [{"functionDeclarations": tools}]
-    return payload
+def default_local_llm(
+    base_url: str | None = None, model: str | None = None
+) -> OpenAICompatLLMClient:
+    """Build the default local `LLMClient`: an OpenAI-compatible server (Ollama by default).
 
-
-def _tool_response(msg: dict) -> dict:
-    content = msg.get("content", "")
-    try:
-        response = json.loads(content)
-    except (TypeError, ValueError):
-        response = {"content": content}
-    return {"name": msg.get("name", ""), "response": response}
-
-
-def _parse_gemini_response(data: dict) -> LLMResponse:
-    candidates = data.get("candidates") or []
-    if not candidates:
-        return LLMResponse(text=None, tool_calls=[])
-    parts = candidates[0].get("content", {}).get("parts", [])
-    tool_calls: list[ToolCall] = []
-    text_parts: list[str] = []
-    for i, part in enumerate(parts):
-        function_call = part.get("functionCall")
-        if function_call:
-            tool_calls.append(
-                ToolCall(
-                    name=function_call.get("name", ""),
-                    arguments=function_call.get("args") or {},
-                    id=f"call-{i}",
-                )
-            )
-        elif part.get("text"):
-            text_parts.append(part["text"])
-    if tool_calls:
-        return LLMResponse(text=None, tool_calls=tool_calls)
-    return LLMResponse(text="".join(text_parts) or None, tool_calls=[])
+    `base_url` defaults to Ollama's local OpenAI-compat endpoint; `model` defaults to
+    `DEFAULT_LOCAL_MODEL`. No `api_key` -- local servers (Ollama, llama.cpp) generally don't
+    require one.
+    """
+    return OpenAICompatLLMClient(
+        base_url=base_url or DEFAULT_LOCAL_BASE_URL,
+        model=model or DEFAULT_LOCAL_MODEL,
+        api_key=None,
+    )
 
 
 class KnowledgeBase:
     """Ties `pysaka.knowledge` together for one group's synced `output_dir` tree.
 
     `embedder` / `vector_store` / `llm` are injectable (tests pass pure-Python fakes);
-    left as `None` they are lazily constructed from the real backends
-    (`OnnxEmbedder` reading `SAKA_KB_MODEL_DIR`, `NumpyVectorStore`, `GeminiLLMClient`)
-    on first actual use, so building a `KnowledgeBase` never requires a model file or
-    network access unless `build_index()`/`ask()` is actually called without fakes.
+    left as `None` they are lazily constructed from the real backends (`OnnxEmbedder`
+    reading `SAKA_KB_MODEL_DIR`, `NumpyVectorStore`, `default_cloud_llm()` i.e. Gemini via
+    its OpenAI-compat endpoint) on first actual use, so building a `KnowledgeBase` never
+    requires a model file or network access unless `build_index()`/`ask()` is actually
+    called without fakes. To use the local backend instead, pass
+    `llm=default_local_llm(...)` (or any other `OpenAICompatLLMClient`) explicitly --
+    see `saka_cli.cli`'s `--llm-backend` wiring.
     """
 
     def __init__(
@@ -223,7 +160,7 @@ class KnowledgeBase:
 
     def _ensure_llm(self) -> Any:
         if self._llm is None:
-            self._llm = GeminiLLMClient()
+            self._llm = default_cloud_llm()
         return self._llm
 
     def _ensure_retriever(self) -> HybridRetriever:
@@ -358,6 +295,25 @@ def _render_answer(kb: KnowledgeBase, answer: Answer, kb_format: str) -> None:
         logger.info(_citation_line(kb, citation))
 
 
+def _resolve_llm(
+    llm_backend: str | None, llm_base_url: str | None, llm_model: str | None
+) -> Any | None:
+    """Build the `LLMClient` `run_kb_command` should inject into `KnowledgeBase`, from CLI flags.
+
+    Returns `None` when the user passed none of `--llm-backend`/`--llm-base-url`/`--llm-model`,
+    which leaves `KnowledgeBase._ensure_llm()` free to lazily build its own cloud default --
+    i.e. unchanged default behavior for callers that never touch these flags. Any explicit flag
+    means "the user made a choice": `--llm-backend local` builds `default_local_llm()`
+    (optionally overridden by `--llm-base-url`/`--llm-model`); anything else (including just
+    `--llm-model` alone, to override the cloud model) builds `default_cloud_llm()`.
+    """
+    if llm_backend is None and llm_base_url is None and llm_model is None:
+        return None
+    if llm_backend == "local":
+        return default_local_llm(base_url=llm_base_url, model=llm_model)
+    return default_cloud_llm(model=llm_model)
+
+
 def run_kb_command(
     output_dir: Path,
     service: str,
@@ -366,13 +322,21 @@ def run_kb_command(
     kb_index: bool,
     kb_format: str,
     aliases_file: Path | None = None,
+    llm_backend: str | None = None,
+    llm_base_url: str | None = None,
+    llm_model: str | None = None,
 ) -> None:
-    """Entry point wired from `saka_cli.cli.main()`: build the index and/or answer a question."""
+    """Entry point wired from `saka_cli.cli.main()`: build the index and/or answer a question.
+
+    `llm_backend`/`llm_base_url`/`llm_model` come straight from the CLI's `--llm-backend`/
+    `--llm-base-url`/`--llm-model` flags (all default `None` -- see `_resolve_llm`).
+    """
     kb = KnowledgeBase(
         Path(output_dir),
         service,
         members_dir=Path(members_dir),
         aliases_file=aliases_file,
+        llm=_resolve_llm(llm_backend, llm_base_url, llm_model),
     )
 
     if kb_index:

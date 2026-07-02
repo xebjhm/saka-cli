@@ -20,6 +20,7 @@ from pysaka import (
     SessionExpiredError,
 )
 
+from saka_cli.hardware import detect_hardware, suggest_llm_backend
 from saka_cli.kb import run_kb_command
 from saka_cli.logging_setup import setup_logging
 from saka_cli.strings import get_string, set_language, get_language
@@ -1171,6 +1172,21 @@ def get_parser():
     parser.add_argument(
         "--kb-aliases", type=str, metavar="FILE", help=get_string("help_kb_aliases")
     )
+    parser.add_argument(
+        "--llm-backend",
+        type=str,
+        choices=["cloud", "local"],
+        help=get_string("help_llm_backend"),
+    )
+    parser.add_argument(
+        "--llm-base-url", type=str, metavar="URL", help=get_string("help_llm_base_url")
+    )
+    parser.add_argument(
+        "--llm-model", type=str, metavar="NAME", help=get_string("help_llm_model")
+    )
+    parser.add_argument(
+        "--hw-suggest", action="store_true", help=get_string("help_hw_suggest")
+    )
     return parser
 
 
@@ -1231,6 +1247,18 @@ def main():
 
     logger.debug(f"Language pre-initialized to: {lang}")
 
+    # --hw-suggest: diagnostic-only. Detect hardware, print it + the local-vs-cloud LLM
+    # backend suggestion, and exit -- doesn't require --service or touch any other flag.
+    if args.hw_suggest:
+        hw = detect_hardware()
+        suggestion = suggest_llm_backend(hw)
+        print(
+            json.dumps(
+                {"hardware": hw, "suggestion": suggestion}, ensure_ascii=False, indent=2
+            )
+        )
+        return
+
     # Initialize Defaults
     service_str = args.service
     output_dir = args.output
@@ -1243,6 +1271,13 @@ def main():
         if not args.kb_members:
             logger.error(get_string("kb_error_members_required"))
             return
+        if not args.llm_backend:
+            # No explicit --llm-backend: log the hardware-based suggestion as a hint so the
+            # user knows what they *could* pass, without forcing a choice on them.
+            hint = suggest_llm_backend()
+            logger.info(
+                get_string("kb_llm_hint").format(hint["recommended"], hint["reason"])
+            )
         try:
             run_kb_command(
                 output_dir=Path(output_dir or DEFAULT_OUTPUT),
@@ -1252,6 +1287,9 @@ def main():
                 kb_index=args.kb_index,
                 kb_format=args.kb_format,
                 aliases_file=Path(args.kb_aliases) if args.kb_aliases else None,
+                llm_backend=args.llm_backend,
+                llm_base_url=args.llm_base_url,
+                llm_model=args.llm_model,
             )
         except KeyboardInterrupt:
             logger.warning(get_string("run_interrupted"))

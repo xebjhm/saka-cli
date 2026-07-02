@@ -2,8 +2,8 @@
 
 Uses pure-Python fakes (`FakeEmbedder`, `FakeVectorStore`, `pysaka.knowledge.llm.FakeLLMClient`)
 so these tests never touch a real ONNX model, numpy vector math, or the network. The
-real `OnnxEmbedder` / `NumpyVectorStore` / `GeminiLLMClient` backends are exercised
-manually only (see task-17-report.md).
+real `OnnxEmbedder` / `NumpyVectorStore` / `OpenAICompatLLMClient` backends are exercised
+manually only (see task-17-report.md / the LLM backend report).
 """
 
 from __future__ import annotations
@@ -15,7 +15,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from pysaka.knowledge.llm import FakeLLMClient, LLMResponse, ToolCall
-from saka_cli.kb import KnowledgeBase, run_kb_command
+from saka_cli.kb import (
+    KnowledgeBase,
+    default_cloud_llm,
+    default_local_llm,
+    run_kb_command,
+)
+from saka_cli.llm_backends import OpenAICompatLLMClient
 
 _SERVICE = "hinatazaka46"
 _DISPLAY = "日向坂46"
@@ -431,3 +437,100 @@ def test_run_kb_command_ask_without_index_warns(tmp_path: Path, members_dir: Pat
         or "未構建索引" in warning_call
         or "冇構建索引" in warning_call
     )
+
+
+# --- default_cloud_llm / default_local_llm / _resolve_llm wiring ------------------
+
+
+def test_default_cloud_llm_uses_gemini_openai_compat_endpoint(monkeypatch):
+    monkeypatch.delenv("SAKA_KB_LLM_MODEL", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "env-key")
+
+    client = default_cloud_llm()
+
+    assert isinstance(client, OpenAICompatLLMClient)
+    assert client._base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+    assert client._model == "gemini-2.5-flash"
+    assert client._api_key == "env-key"
+
+
+def test_default_cloud_llm_honors_explicit_model_and_api_key(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+    client = default_cloud_llm(model="gemini-1.5-pro", api_key="explicit-key")
+
+    assert client._model == "gemini-1.5-pro"
+    assert client._api_key == "explicit-key"
+
+
+def test_default_local_llm_defaults_to_ollama():
+    client = default_local_llm()
+
+    assert isinstance(client, OpenAICompatLLMClient)
+    assert client._base_url == "http://localhost:11434/v1"
+    assert client._model == "qwen2.5:14b"
+    assert client._api_key is None
+
+
+def test_default_local_llm_honors_overrides():
+    client = default_local_llm(base_url="http://localhost:8080/v1", model="llama3")
+
+    assert client._base_url == "http://localhost:8080/v1"
+    assert client._model == "llama3"
+
+
+def test_ensure_llm_defaults_to_cloud_when_none_injected(
+    tmp_path: Path, members_dir: Path
+):
+    kb = KnowledgeBase(
+        tmp_path,
+        _SERVICE,
+        members_dir=members_dir,
+        embedder=FakeEmbedder(),
+        vector_store=FakeVectorStore(),
+    )
+
+    llm = kb._ensure_llm()
+
+    assert isinstance(llm, OpenAICompatLLMClient)
+    assert llm._base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+
+
+def test_run_kb_command_resolves_explicit_local_backend(
+    tmp_path: Path, members_dir: Path
+):
+    with patch("saka_cli.kb.KnowledgeBase") as MockKB:
+        run_kb_command(
+            output_dir=tmp_path,
+            service=_SERVICE,
+            members_dir=members_dir,
+            ask=None,
+            kb_index=True,
+            kb_format="text",
+            llm_backend="local",
+            llm_base_url="http://localhost:8080/v1",
+            llm_model="llama3",
+        )
+
+    llm = MockKB.call_args.kwargs["llm"]
+    assert isinstance(llm, OpenAICompatLLMClient)
+    assert llm._base_url == "http://localhost:8080/v1"
+    assert llm._model == "llama3"
+
+
+def test_run_kb_command_leaves_llm_none_when_backend_unspecified(
+    tmp_path: Path, members_dir: Path
+):
+    """No --llm-backend/--llm-base-url/--llm-model: KnowledgeBase gets `llm=None` and lazily
+    builds its own cloud default on first actual use -- unchanged default behavior."""
+    with patch("saka_cli.kb.KnowledgeBase") as MockKB:
+        run_kb_command(
+            output_dir=tmp_path,
+            service=_SERVICE,
+            members_dir=members_dir,
+            ask=None,
+            kb_index=True,
+            kb_format="text",
+        )
+
+    assert MockKB.call_args.kwargs["llm"] is None
