@@ -42,6 +42,59 @@ _MEMBERS = {
 
 _EXPECTED_MSG_DOC_ID = "msg:hinatazaka46:hinatazaka46:12:1"
 
+# --- call-names fixtures: given-name collision mirroring the real 蔵盛/上村 -> ひなの case --
+# 蔵盛妃那乃 and 上村ひなの share the hiragana given name "ひなの", so the mechanically-seeded
+# AliasTable maps "ひなの" to *both* of them -- ambiguous by design. A curated call_names.json
+# edge records that 金村美玖 (the caller) specifically addresses 蔵盛妃那乃 (the callee) by that
+# name, which is what should resolve the ambiguity once threaded into `MentionDetector`.
+_COLLISION_CALLER_ID = f"{_SERVICE}:12"  # 金村 美玖
+_COLLISION_CALLEE_ID = (
+    f"{_SERVICE}:1"  # 蔵盛 妃那乃 -- named by the curated call-name edge
+)
+_COLLISION_NAMESAKE_ID = f"{_SERVICE}:2"  # 上村 ひなの -- shares "ひなの", not curated
+
+_COLLISION_MEMBERS = {
+    "meta": {"group": _SERVICE},
+    "members": [
+        {
+            "blogId": "12",
+            "nameKanji": "金村 美玖",
+            "nameHiragana": "かねむら みく",
+            "nameRomaji": "Kanemura Miku",
+            "generation": 2,
+            "status": "active",
+        },
+        {
+            "blogId": "1",
+            "nameKanji": "蔵盛 妃那乃",
+            "nameHiragana": "くらもり ひなの",
+            "nameRomaji": "Kuramochi Hinano",
+            "generation": 4,
+            "status": "active",
+        },
+        {
+            "blogId": "2",
+            "nameKanji": "上村 ひなの",
+            "nameHiragana": "かみむら ひなの",
+            "nameRomaji": "Kamimura Hinano",
+            "generation": 4,
+            "status": "active",
+        },
+    ],
+}
+
+_CALL_NAMES_DATA = {
+    "edges": [
+        {
+            "caller_id": _COLLISION_CALLER_ID,
+            "caller_name": "金村 美玖",
+            "callee_id": _COLLISION_CALLEE_ID,
+            "callee_name": "蔵盛 妃那乃",
+            "names": ["ひなの"],
+        }
+    ]
+}
+
 
 class FakeEmbedder:
     """Deterministic fixed-dim embedder: hashes any text into a vector.
@@ -109,6 +162,16 @@ def members_dir(tmp_path: Path) -> Path:
     return d
 
 
+@pytest.fixture
+def collision_members_dir(tmp_path: Path) -> Path:
+    d = tmp_path / "collision_members"
+    d.mkdir()
+    (d / f"{_SERVICE}.json").write_text(
+        json.dumps(_COLLISION_MEMBERS, ensure_ascii=False), encoding="utf-8"
+    )
+    return d
+
+
 def _write_messages_fixture(tmp_path: Path) -> None:
     d = tmp_path / _DISPLAY / "messages" / "34 金村 美玖" / "58 金村 美玖"
     d.mkdir(parents=True)
@@ -130,6 +193,49 @@ def _write_messages_fixture(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _write_collision_message_fixture(tmp_path: Path) -> None:
+    """A message from 金村美玖 (the caller) mentioning "ひなの" -- ambiguous between
+    蔵盛妃那乃 and 上村ひなの unless a `CallNameTable` resolves it directionally."""
+    d = tmp_path / _DISPLAY / "messages" / "12 金村 美玖" / "12 金村 美玖"
+    d.mkdir(parents=True)
+    (d / "messages.json").write_text(
+        json.dumps(
+            {
+                "member": {"id": 12, "name": "金村 美玖", "group_id": 12},
+                "messages": [
+                    {
+                        "id": 501,
+                        "timestamp": "2025-09-01T10:00:00Z",
+                        "type": "text",
+                        "is_favorite": False,
+                        "content": "ひなのと話した",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _build_collision_kb(
+    tmp_path: Path, collision_members_dir: Path, call_names_file: Path | None = None
+) -> KnowledgeBase:
+    return KnowledgeBase(
+        tmp_path,
+        _SERVICE,
+        members_dir=collision_members_dir,
+        embedder=FakeEmbedder(),
+        vector_store=FakeVectorStore(),
+        call_names_file=call_names_file,
+    )
+
+
+def _mentions_from_caller_doc(kb: KnowledgeBase) -> list[str]:
+    doc = next(d for d in kb.store.all() if d.author_id == _COLLISION_CALLER_ID)
+    return doc.mentions
 
 
 def _write_blog_fixture(tmp_path: Path) -> None:
@@ -228,6 +334,81 @@ def test_build_index_with_no_data_returns_zero(tmp_path: Path, members_dir: Path
     )
     assert kb.build_index() == 0
     assert kb.store.all() == []
+
+
+# --- call_names_file wiring (directional CallNameTable -> MentionDetector) --------
+
+
+def test_call_names_file_resolves_ambiguous_alias_to_specific_callee(
+    tmp_path: Path, collision_members_dir: Path
+):
+    """WITH a call_names.json: `KnowledgeBase` builds a `CallNameTable` and passes it into
+    `MentionDetector`, so 蔵盛妃那乃/上村ひなの's shared "ひなの" reading resolves
+    deterministically to the callee the curated edge names, not both namesakes."""
+    _write_collision_message_fixture(tmp_path)
+    call_names_path = tmp_path / "call_names.json"
+    call_names_path.write_text(
+        json.dumps(_CALL_NAMES_DATA, ensure_ascii=False), encoding="utf-8"
+    )
+
+    kb = _build_collision_kb(
+        tmp_path, collision_members_dir, call_names_file=call_names_path
+    )
+    kb.build_index()
+
+    assert _mentions_from_caller_doc(kb) == [_COLLISION_CALLEE_ID]
+
+
+def test_without_call_names_file_ambiguous_alias_stays_ambiguous(
+    tmp_path: Path, collision_members_dir: Path
+):
+    """Control: the SAME setup but no `call_names_file` -- the given-name collision between
+    蔵盛妃那乃 and 上村ひなの is left ambiguous (both candidates kept), proving the wiring
+    exercised above is what actually changes detection behavior."""
+    _write_collision_message_fixture(tmp_path)
+
+    kb = _build_collision_kb(tmp_path, collision_members_dir)
+    kb.build_index()
+
+    assert _mentions_from_caller_doc(kb) == sorted(
+        [_COLLISION_CALLEE_ID, _COLLISION_NAMESAKE_ID]
+    )
+
+
+def test_run_kb_command_passes_call_names_file_to_knowledge_base(
+    tmp_path: Path, members_dir: Path
+):
+    call_names_path = tmp_path / "call_names.json"
+    with patch("saka_cli.kb.KnowledgeBase") as MockKB:
+        run_kb_command(
+            output_dir=tmp_path,
+            service=_SERVICE,
+            members_dir=members_dir,
+            ask=None,
+            kb_index=True,
+            kb_format="text",
+            call_names_file=call_names_path,
+        )
+
+    assert MockKB.call_args.kwargs["call_names_file"] == call_names_path
+
+
+def test_run_kb_command_leaves_call_names_file_none_by_default(
+    tmp_path: Path, members_dir: Path
+):
+    """No `call_names_file` passed: `KnowledgeBase` gets `call_names_file=None` -- unchanged
+    default behavior for callers that never touch this flag."""
+    with patch("saka_cli.kb.KnowledgeBase") as MockKB:
+        run_kb_command(
+            output_dir=tmp_path,
+            service=_SERVICE,
+            members_dir=members_dir,
+            ask=None,
+            kb_index=True,
+            kb_format="text",
+        )
+
+    assert MockKB.call_args.kwargs["call_names_file"] is None
 
 
 # --- ask --------------------------------------------------------------------------

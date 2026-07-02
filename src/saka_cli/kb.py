@@ -26,6 +26,7 @@ from pysaka import Group
 from pysaka.client import GROUP_CONFIG
 from pysaka.knowledge.agent import KnowledgeAgent
 from pysaka.knowledge.aliases import AliasTable
+from pysaka.knowledge.callnames import CallNameTable
 from pysaka.knowledge.chunking import chunk_documents
 from pysaka.knowledge.ingest import ingest_blog, ingest_messages
 from pysaka.knowledge.lexical import PureLexicalIndex
@@ -109,6 +110,7 @@ class KnowledgeBase:
         vector_store: Any = None,
         llm: Any = None,
         aliases_file: Path | None = None,
+        call_names_file: Path | None = None,
     ) -> None:
         self.output_dir = Path(output_dir)
         self.service = service
@@ -132,7 +134,15 @@ class KnowledgeBase:
                 curated = json.load(f)
             self.aliases.load_curated(curated)
 
-        self._mention_detector = MentionDetector(self.aliases.entries(service))
+        call_names: CallNameTable | None = None
+        if call_names_file is not None:
+            with open(Path(call_names_file), encoding="utf-8") as f:
+                call_names_data = json.load(f)
+            call_names = CallNameTable.from_json(call_names_data)
+
+        self._mention_detector = MentionDetector(
+            self.aliases.entries(service), call_names
+        )
         self.store = DocumentStore()
 
     # --- lazy backend construction ------------------------------------------------
@@ -322,12 +332,16 @@ def run_kb_command(
     kb_index: bool,
     kb_format: str,
     aliases_file: Path | None = None,
+    call_names_file: Path | None = None,
     llm_backend: str | None = None,
     llm_base_url: str | None = None,
     llm_model: str | None = None,
 ) -> None:
     """Entry point wired from `saka_cli.cli.main()`: build the index and/or answer a question.
 
+    `aliases_file`/`call_names_file` come straight from the CLI's `--kb-aliases`/
+    `--kb-call-names` flags (both default `None`, leaving `KnowledgeBase` to build with no
+    curated aliases / no directional call-name disambiguation -- unchanged default behavior).
     `llm_backend`/`llm_base_url`/`llm_model` come straight from the CLI's `--llm-backend`/
     `--llm-base-url`/`--llm-model` flags (all default `None` -- see `_resolve_llm`).
     """
@@ -336,6 +350,7 @@ def run_kb_command(
         service,
         members_dir=Path(members_dir),
         aliases_file=aliases_file,
+        call_names_file=call_names_file,
         llm=_resolve_llm(llm_backend, llm_base_url, llm_model),
     )
 

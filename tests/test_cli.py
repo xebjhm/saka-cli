@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from pathlib import Path
 from unittest.mock import patch, AsyncMock
 from saka_cli.cli import main
 
@@ -331,6 +332,58 @@ def test_kb_harness_passes_llm_flags_through_to_run_kb_command():
     assert kwargs["llm_model"] == "qwen2.5:14b"
     # An explicit --llm-backend means no hardware hint is needed.
     mock_suggest.assert_not_called()
+
+
+def test_kb_harness_passes_call_names_flag_through_to_run_kb_command():
+    """--kb-call-names PATH is parsed and threaded to `run_kb_command` as `call_names_file`
+    (mirrors how --llm-backend/--llm-base-url/--llm-model reach `run_kb_command` unchanged)."""
+    with (
+        patch(
+            "sys.argv",
+            [
+                "saka-cli",
+                "--service",
+                "hinatazaka46",
+                "--kb-index",
+                "--kb-members",
+                "members_dir",
+                "--kb-call-names",
+                "call_names.json",
+            ],
+        ),
+        patch("saka_cli.cli.run_kb_command") as mock_run_kb,
+        patch("saka_cli.cli.suggest_llm_backend") as mock_suggest,
+    ):
+        main()
+
+    mock_run_kb.assert_called_once()
+    kwargs = mock_run_kb.call_args.kwargs
+    assert kwargs["call_names_file"] == Path("call_names.json")
+    mock_suggest.assert_called_once()
+
+
+def test_kb_harness_leaves_call_names_file_none_when_flag_absent():
+    """No --kb-call-names: `run_kb_command` receives `call_names_file=None` -- unchanged
+    default behavior for callers that never touch this flag."""
+    with (
+        patch(
+            "sys.argv",
+            [
+                "saka-cli",
+                "--service",
+                "hinatazaka46",
+                "--kb-index",
+                "--kb-members",
+                "members_dir",
+            ],
+        ),
+        patch("saka_cli.cli.run_kb_command") as mock_run_kb,
+        patch("saka_cli.cli.suggest_llm_backend"),
+    ):
+        main()
+
+    kwargs = mock_run_kb.call_args.kwargs
+    assert kwargs["call_names_file"] is None
 
 
 def test_kb_harness_logs_hardware_hint_when_backend_unspecified():

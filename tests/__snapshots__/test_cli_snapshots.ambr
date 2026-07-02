@@ -5,7 +5,7 @@
                   [-i] [--include-offline] [-g GROUP] [-m [MEMBERS ...]]
                   [--cleanup] [--lang {en,ja,zh-TW,zh-CN,yue}] [-v] [--blog]
                   [--ask QUERY] [--kb-index] [--kb-format {text,json,brief}]
-                  [--kb-members DIR] [--kb-aliases FILE]
+                  [--kb-members DIR] [--kb-aliases FILE] [--kb-call-names PATH]
                   [--llm-backend {cloud,local}] [--llm-base-url URL]
                   [--llm-model NAME] [--hw-suggest]
   
@@ -36,6 +36,8 @@
                           files
     --kb-aliases FILE     Optional curated aliases JSON file for the knowledge
                           base
+    --kb-call-names PATH  Optional curated call-names JSON file (directional
+                          per-author nicknames) for the knowledge base
     --llm-backend {cloud,local}
                           LLM backend for --ask: cloud (Gemini) or local
                           (Ollama/llama.cpp)

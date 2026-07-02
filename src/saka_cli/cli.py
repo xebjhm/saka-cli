@@ -1173,6 +1173,12 @@ def get_parser():
         "--kb-aliases", type=str, metavar="FILE", help=get_string("help_kb_aliases")
     )
     parser.add_argument(
+        "--kb-call-names",
+        type=str,
+        metavar="PATH",
+        help=get_string("help_kb_call_names"),
+    )
+    parser.add_argument(
         "--llm-backend",
         type=str,
         choices=["cloud", "local"],
@@ -1287,6 +1293,9 @@ def main():
                 kb_index=args.kb_index,
                 kb_format=args.kb_format,
                 aliases_file=Path(args.kb_aliases) if args.kb_aliases else None,
+                call_names_file=Path(args.kb_call_names)
+                if args.kb_call_names
+                else None,
                 llm_backend=args.llm_backend,
                 llm_base_url=args.llm_base_url,
                 llm_model=args.llm_model,
