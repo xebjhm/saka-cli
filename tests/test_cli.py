@@ -1,4 +1,7 @@
+import json
+
 import pytest
+from pathlib import Path
 from unittest.mock import patch, AsyncMock
 from saka_cli.cli import main
 
@@ -247,3 +250,178 @@ def test_interactive_wizard_skips_lang_prompt_when_detected():
     finally:
         # Reset language
         strings.set_language(original_lang)
+
+
+# ---------------------------------------------------------------------------
+# --hw-suggest / --llm-backend wiring
+# ---------------------------------------------------------------------------
+
+
+def test_hw_suggest_prints_hardware_and_suggestion_then_exits(capsys):
+    """--hw-suggest prints detect_hardware() + suggest_llm_backend() as JSON and returns
+    without touching the sync/wizard/kb paths.
+
+    Patches `structlog.get_logger` (not `saka_cli.cli.logger` directly) because `main()`
+    rebinds the module-level `logger` via `global logger; logger = structlog.get_logger()`
+    right after `setup_logging()` -- patching the name alone would just get overwritten by
+    that rebind. This also silences the unrelated "Language pre-initialized" debug line so
+    capsys only contains the JSON payload.
+    """
+    fake_hw = {
+        "ram_gb": 32.0,
+        "gpu": "NVIDIA RTX 3060",
+        "vram_gb": 12.0,
+        "platform": "Linux",
+    }
+    fake_suggestion = {
+        "recommended": "local",
+        "local_model": "qwen2.5:14b",
+        "tier": "T1",
+        "reason": "test reason",
+    }
+
+    with (
+        patch("sys.argv", ["saka-cli", "--hw-suggest"]),
+        patch("saka_cli.cli.structlog.get_logger"),
+        patch("saka_cli.cli.detect_hardware", return_value=fake_hw) as mock_detect,
+        patch(
+            "saka_cli.cli.suggest_llm_backend", return_value=fake_suggestion
+        ) as mock_suggest,
+        patch("saka_cli.cli.SakaCLI") as MockCLI,
+    ):
+        main()
+
+    mock_detect.assert_called_once()
+    mock_suggest.assert_called_once_with(fake_hw)
+    MockCLI.assert_not_called()
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["hardware"] == fake_hw
+    assert payload["suggestion"] == fake_suggestion
+
+
+def test_kb_harness_passes_llm_flags_through_to_run_kb_command():
+    """--llm-backend/--llm-base-url/--llm-model reach run_kb_command unchanged."""
+    with (
+        patch(
+            "sys.argv",
+            [
+                "saka-cli",
+                "--service",
+                "hinatazaka46",
+                "--kb-index",
+                "--kb-members",
+                "members_dir",
+                "--llm-backend",
+                "local",
+                "--llm-base-url",
+                "http://localhost:11434/v1",
+                "--llm-model",
+                "qwen2.5:14b",
+            ],
+        ),
+        patch("saka_cli.cli.run_kb_command") as mock_run_kb,
+        patch("saka_cli.cli.suggest_llm_backend") as mock_suggest,
+    ):
+        main()
+
+    mock_run_kb.assert_called_once()
+    kwargs = mock_run_kb.call_args.kwargs
+    assert kwargs["llm_backend"] == "local"
+    assert kwargs["llm_base_url"] == "http://localhost:11434/v1"
+    assert kwargs["llm_model"] == "qwen2.5:14b"
+    # An explicit --llm-backend means no hardware hint is needed.
+    mock_suggest.assert_not_called()
+
+
+def test_kb_harness_passes_call_names_flag_through_to_run_kb_command():
+    """--kb-call-names PATH is parsed and threaded to `run_kb_command` as `call_names_file`
+    (mirrors how --llm-backend/--llm-base-url/--llm-model reach `run_kb_command` unchanged)."""
+    with (
+        patch(
+            "sys.argv",
+            [
+                "saka-cli",
+                "--service",
+                "hinatazaka46",
+                "--kb-index",
+                "--kb-members",
+                "members_dir",
+                "--kb-call-names",
+                "call_names.json",
+            ],
+        ),
+        patch("saka_cli.cli.run_kb_command") as mock_run_kb,
+        patch("saka_cli.cli.suggest_llm_backend") as mock_suggest,
+    ):
+        main()
+
+    mock_run_kb.assert_called_once()
+    kwargs = mock_run_kb.call_args.kwargs
+    assert kwargs["call_names_file"] == Path("call_names.json")
+    mock_suggest.assert_called_once()
+
+
+def test_kb_harness_leaves_call_names_file_none_when_flag_absent():
+    """No --kb-call-names: `run_kb_command` receives `call_names_file=None` -- unchanged
+    default behavior for callers that never touch this flag."""
+    with (
+        patch(
+            "sys.argv",
+            [
+                "saka-cli",
+                "--service",
+                "hinatazaka46",
+                "--kb-index",
+                "--kb-members",
+                "members_dir",
+            ],
+        ),
+        patch("saka_cli.cli.run_kb_command") as mock_run_kb,
+        patch("saka_cli.cli.suggest_llm_backend"),
+    ):
+        main()
+
+    kwargs = mock_run_kb.call_args.kwargs
+    assert kwargs["call_names_file"] is None
+
+
+def test_kb_harness_logs_hardware_hint_when_backend_unspecified():
+    """No --llm-backend: the hardware suggestion is logged as an info hint before running.
+
+    See `test_hw_suggest_prints_hardware_and_suggestion_then_exits` for why this patches
+    `structlog.get_logger` rather than `saka_cli.cli.logger` directly.
+    """
+    fake_suggestion = {
+        "recommended": "cloud",
+        "local_model": None,
+        "tier": "cloud",
+        "reason": "no gpu",
+    }
+
+    with (
+        patch(
+            "sys.argv",
+            [
+                "saka-cli",
+                "--service",
+                "hinatazaka46",
+                "--kb-index",
+                "--kb-members",
+                "members_dir",
+            ],
+        ),
+        patch("saka_cli.cli.run_kb_command") as mock_run_kb,
+        patch(
+            "saka_cli.cli.suggest_llm_backend", return_value=fake_suggestion
+        ) as mock_suggest,
+        patch("saka_cli.cli.structlog.get_logger") as mock_get_logger,
+    ):
+        main()
+
+    mock_suggest.assert_called_once_with()
+    mock_run_kb.assert_called_once()
+    assert mock_run_kb.call_args.kwargs["llm_backend"] is None
+    mock_logger = mock_get_logger.return_value
+    hint_calls = [call.args[0] for call in mock_logger.info.call_args_list]
+    assert any("cloud" in msg for msg in hint_calls)
