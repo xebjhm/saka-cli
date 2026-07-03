@@ -734,7 +734,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -1245,7 +1245,7 @@ name = "importlib-metadata"
 version = "8.7.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zipp" },
+    { name = "zipp", marker = "python_full_version < '3.12'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f3/49/3b30cad09e7771a4982d9975a8cbf64f00d4a1ececb53297f1d9a7be1b10/importlib_metadata-8.7.1.tar.gz", hash = "sha256:49fef1ae6440c182052f407c8d34a68f72efc36db9ca90dc0113398f2fdde8bb", size = 57107, upload-time = "2025-12-21T10:00:19.278Z" }
 wheels = [
@@ -2908,7 +2908,7 @@ wheels = [
 
 [[package]]
 name = "pysaka"
-version = "0.4.0"
+version = "0.4.1"
 source = { editable = "../pysaka" }
 dependencies = [
     { name = "aiofiles" },
@@ -2946,16 +2946,19 @@ requires-dist = [
     { name = "keyring", specifier = ">=24.0.0" },
     { name = "keyrings-alt", marker = "extra == 'headless'", specifier = ">=4.0" },
     { name = "numpy", marker = "extra == 'embeddings'", specifier = ">=1.24" },
+    { name = "numpy", marker = "extra == 'embeddings-gpu'", specifier = ">=1.24" },
     { name = "onnxruntime", marker = "extra == 'embeddings'", specifier = ">=1.17" },
+    { name = "onnxruntime-gpu", marker = "extra == 'embeddings-gpu'", specifier = ">=1.17" },
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "playwright", specifier = ">=1.40.0" },
     { name = "pyahocorasick", specifier = ">=2.2.0" },
     { name = "pymediainfo", specifier = ">=6.0.0" },
     { name = "structlog", specifier = ">=24.1.0" },
     { name = "tokenizers", marker = "extra == 'embeddings'", specifier = ">=0.15" },
+    { name = "tokenizers", marker = "extra == 'embeddings-gpu'", specifier = ">=0.15" },
     { name = "tzdata", specifier = ">=2025.3" },
 ]
-provides-extras = ["headless", "embeddings"]
+provides-extras = ["headless", "embeddings", "embeddings-gpu"]
 
 [package.metadata.requires-dev]
 dev = [
