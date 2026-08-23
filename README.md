@@ -31,7 +31,8 @@ The following are excerpts from the official Terms of Service. Please refer to t
 ## Features
 - **Multi-Group Support**: Nogizaka46, Hinatazaka46, and Sakurazaka46.
 - **Message Backup**: Download messages, images, videos, and voice clips.
-- **Blog Backup**: Backup official member blogs (HTML + images) for all groups.
+- **Blog Backup**: Backup official member blogs (content + images) for all groups.
+- **SakaDesk-compatible**: Writes the exact same directory layout as the SakaDesk GUI, so both tools can share one output folder.
 - **Resilient**: Auto-retry, persistent sessions, and robust error handling.
 - **Secure**: Local token storage (System Keyring).
 - **Multi-Language**: English, Japanese, Traditional Chinese, and Simplified Chinese.
@@ -105,7 +106,7 @@ Remove all local authentication data and tokens.
 ```
 
 ### 4. Official Blog Backup (All Groups)
-Backup member blogs (HTML + Images) from the official website. No account/subscription required.
+Backup member blogs (content + images) from the official website. No account/subscription required.
 
 **Supported Groups:**
 - Nogizaka46
@@ -125,14 +126,50 @@ Select your group -> `Official Blog Backup` in the wizard.
 
 # Sakurazaka46 example
 ./saka-cli -s sakurazaka46 --blog
+
+# Also write a readable index.html next to each blog.json
+./saka-cli -s hinatazaka46 --blog --html
 ```
 
 > **Note**: Replace `./saka-cli` with the actual binary name (e.g., `./saka-cli-0.1.1-linux` or `.\saka-cli-0.1.1-windows.exe`)
 
+## Output Layout
+
+Everything is written under a per-service folder named after the group, matching
+what the SakaDesk GUI produces. Point both tools at the same `-o` directory and
+they read and write the same files.
+
+```
+output/
+└── 日向坂46/                                  # per-service root
+    ├── sync_metadata.json                    # chat list + per-member cursors
+    ├── sync_state.json                       # pysaka's incremental sync cursors
+    ├── messages/
+    │   └── 1 1st Single/                     # {group_id} {group_name}
+    │       └── 40 松田 好花/                  # {member_id} {member_name}
+    │           ├── messages.json
+    │           ├── picture/1002.jpg          # {message_id}.{ext}
+    │           ├── video/
+    │           └── voice/
+    └── blogs/
+        ├── index.json                        # every post's title/date/url
+        ├── member_thumbnails/
+        │   ├── members_cache.json
+        │   └── 40.jpg                        # {member_id}.{ext}
+        └── 松田 好花/
+            └── 20260314_555/                 # {YYYYMMDD}_{blog_id}
+                ├── blog.json
+                ├── images/img_0.jpg
+                └── index.html                # only with --html
+```
+
+Re-running is incremental: messages resume from the per-member cursor in
+`sync_state.json`, and blog posts that already have a `blog.json` are skipped.
+
 ## Configuration
 Configuration is stored in `config_{group}.json` in the current working directory.
 - `auth_data/`: Browser context and cookies.
-- `output/`: Downloaded images, videos, and voice messages.
+- `output/`: Synced content, laid out as above. Override with `-o`.
 
 ## Linux Support & Troubleshooting
 

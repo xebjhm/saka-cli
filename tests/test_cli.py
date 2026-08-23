@@ -4,6 +4,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, AsyncMock
 from saka_cli.cli import main
+from saka_cli.message_sync import DEFAULT_INITIAL_MESSAGE_LIMIT
 
 
 @pytest.fixture(autouse=True)
@@ -55,7 +56,12 @@ def test_cli_batch_mode():
         from pysaka import Group
 
         # Should initialize CLI with passed args
-        MockCLI.assert_called_with(output_dir="outdir", group=Group.NOGIZAKA46)
+        MockCLI.assert_called_with(
+            output_dir="outdir",
+            group=Group.NOGIZAKA46,
+            write_html=False,
+            initial_limit=DEFAULT_INITIAL_MESSAGE_LIMIT,
+        )
         # Should run
         mock_instance.run.assert_called_once()
 
@@ -100,7 +106,12 @@ def test_cli_interactive_flag():
         # Since we mock ScraperCLI class, we can check call args
         from pysaka import Group
 
-        MockCLI.assert_called_with(output_dir="custom_out", group=Group.NOGIZAKA46)
+        MockCLI.assert_called_with(
+            output_dir="custom_out",
+            group=Group.NOGIZAKA46,
+            write_html=False,
+            initial_limit=DEFAULT_INITIAL_MESSAGE_LIMIT,
+        )
 
         # Should run with wizard's config (include_offline is the actual param name, mode is also passed)
         mock_instance.run.assert_called_once_with(
@@ -190,12 +201,19 @@ def test_cli_full_batch_mode():
         from pysaka import Group
 
         # Check Init
-        MockCLI.assert_called_with(output_dir="custom_out", group=Group.SAKURAZAKA46)
+        MockCLI.assert_called_with(
+            output_dir="custom_out",
+            group=Group.SAKURAZAKA46,
+            write_html=False,
+            initial_limit=DEFAULT_INITIAL_MESSAGE_LIMIT,
+        )
 
         # Check Run Args (include_offline is the correct param, mode is always passed)
         mock_instance.run.assert_called_once_with(
             group_ids=[100],
-            member_ids=[1, 2, 3],
+            # Group IDs are ints; member IDs stay strings because blog member
+            # IDs are site codes that int() would mangle (see cli.parse_id_list).
+            member_ids=["1", "2", "3"],
             include_offline=True,
             mode="message",
             blog_members_cache=None,
