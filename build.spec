@@ -34,7 +34,14 @@ a = Analysis(
     hiddenimports=[
         'pysaka', 'pysaka.auth', 'pysaka.client', 'pysaka.utils',
         'pysaka.manager', 'pysaka.credentials', 'pysaka.logging',
+        'pysaka.media', 'pysaka.config', 'pysaka.exceptions',
+        # Blog scrapers are resolved at runtime by get_scraper(), so
+        # PyInstaller's static analysis never sees these imports.
+        'pysaka.blog', 'pysaka.blog.base', 'pysaka.blog.config',
+        'pysaka.blog.hinatazaka', 'pysaka.blog.nogizaka', 'pysaka.blog.sakurazaka',
         'saka_cli', 'saka_cli.logging_setup', 'saka_cli.strings',
+        'saka_cli.paths', 'saka_cli.metadata', 'saka_cli.message_sync',
+        'saka_cli.blog_backup',
         'structlog', 'keyrings.alt', 'playwright.__main__'
     ],
     hookspath=['.'],

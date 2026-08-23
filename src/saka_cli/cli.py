@@ -4,7 +4,6 @@ import json
 import traceback
 import sys
 import structlog
-from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 from tqdm import tqdm
@@ -20,6 +19,8 @@ from pysaka import (
     SessionExpiredError,
 )
 
+from saka_cli import blog_backup, message_sync, paths
+from saka_cli import metadata as meta_store
 from saka_cli.hardware import detect_hardware, suggest_llm_backend
 from saka_cli.kb import run_kb_command
 from saka_cli.logging_setup import setup_logging
@@ -108,12 +109,33 @@ def parse_int_list(value: str) -> list[int]:
     return [int(value)]
 
 
+def parse_id_list(value: str) -> list[str]:
+    """Parse comma or space-separated IDs, keeping them as strings.
+
+    Blog member IDs are site codes, not numbers — Nogizaka's are zero-padded
+    and are matched against the scraper's own string keys — so coercing them
+    to int would either raise or silently change the ID.
+    """
+    parts = value.replace(",", " ").split()
+    return [p.strip() for p in parts if p.strip()]
+
+
 class SakaCLI:
     def __init__(
-        self, output_dir: str = DEFAULT_OUTPUT, group: Group = Group.HINATAZAKA46
+        self,
+        output_dir: str = DEFAULT_OUTPUT,
+        group: Group = Group.HINATAZAKA46,
+        write_html: bool = False,
+        initial_limit: int = message_sync.DEFAULT_INITIAL_MESSAGE_LIMIT,
     ):
         self.output_dir = Path(output_dir)
         self.group = group
+        self.write_html = write_html
+        self.initial_limit = initial_limit
+        # Everything this run writes lives under {output_dir}/{display_name},
+        # the same per-service root SakaDesk uses, so both tools can share one
+        # output tree. See saka_cli.paths for the full layout.
+        self.service_root = paths.service_root(self.output_dir, group)
         # Store config in user data directory for consistent location across platforms
         # Windows: %APPDATA%/pysaka, macOS: ~/Library/Application Support/pysaka, Linux: ~/.local/share/pysaka
         self.config_file = get_user_data_dir() / f"config_{group.value}.json"
@@ -271,14 +293,8 @@ class SakaCLI:
                 print(f"[{m_id}] {m_name}")
 
             sel = input(get_string("blog_id_prompt")).strip()
-            if sel:
-                try:
-                    config["members"] = [int(x) for x in sel.replace(",", " ").split()]
-                except ValueError:
-                    logger.warning("Invalid IDs, selecting all.")
-                    config["members"] = []
-            else:
-                config["members"] = []
+            # Blog IDs stay strings — see parse_id_list.
+            config["members"] = parse_id_list(sel) if sel else []
 
             # Cache members to avoid duplicate fetch in run_blog_backup
             config["_blog_members_cache"] = members
@@ -536,19 +552,6 @@ class SakaCLI:
         else:
             logger.error(get_string("setup_login_fail"))
 
-    async def process_member(self, session, task, media_queue, pbar):
-        # Wrapper to call manager.sync_member
-        async def on_progress(date_str, count):
-            pbar.set_postfix_str(f"Latest: {task['member']['name']} ({count})")
-
-        await self.manager.sync_member(
-            session,
-            task["group"],
-            task["member"],
-            media_queue,
-            progress_callback=on_progress,
-        )
-
     async def fetch_blog_members(self) -> dict[str, str]:
         """Fetch available blog members from the official site."""
         import aiohttp
@@ -609,258 +612,97 @@ class SakaCLI:
             return []
 
     async def run_blog_backup(self, member_ids=None, members_cache=None):
-        """Run blog backup for selected members with parallel downloads.
+        """Back up official blogs into the same tree SakaDesk's blog sync writes.
+
+        Three stages, mirroring the GUI:
+          1. member_thumbnails/ + members_cache.json
+          2. blogs/index.json   (list pages only — fast)
+          3. blog.json + images/ per post (detail pages)
 
         Args:
-            member_ids: List of member IDs to backup. If None, backup all members.
-            members_cache: Pre-fetched member dict from interactive wizard to avoid duplicate fetch.
+            member_ids: Restrict to these member IDs. None means every member.
+            members_cache: Pre-fetched member dict from the interactive wizard,
+                kept only to size the scan progress bar.
         """
         import aiohttp
-        from pysaka.blog import get_scraper
-        from pysaka.client import GROUP_CONFIG
 
-        display_name = GROUP_CONFIG[self.group].get("display_name", self.group.value)
+        if not blog_backup.is_blog_supported(self.group):
+            logger.error(
+                get_string("blog_unsupported_group").format(
+                    paths.get_display_name(self.group)
+                )
+            )
+            return
 
-        # Higher connection limit for parallel scanning
-        connector = aiohttp.TCPConnector(limit=30)
+        connector = aiohttp.TCPConnector(limit=10)
         async with aiohttp.ClientSession(connector=connector) as session:
-            scraper = get_scraper(self.group, session)
+            # Stage 0: member portraits (content-hashed, usually a no-op).
+            logger.info(get_string("blog_fetching_members"))
+            await blog_backup.sync_member_thumbnails(
+                session, self.output_dir, self.group
+            )
 
-            # Use cached members if available, otherwise fetch
-            if members_cache:
-                members = members_cache
-            else:
-                logger.info(get_string("blog_fetching_members"))
-                members = await scraper.get_members()
-
-            target_ids = member_ids if member_ids else list(members.keys())
-
-            # Phase 1: Parallel scan - collect all blog entries from all members concurrently
-            # Use same policy as message mode: initial 20 concurrent, can scale up to 5 more
+            # Stage 1: index metadata.
             logger.info(get_string("blog_scanning"))
-            all_tasks = []  # List of (entry, member_id, member_name)
-            member_counts = {}  # Track post count per member for progress display
-
-            scan_sem = asyncio.Semaphore(20)  # 20 concurrent member scans
-
-            async def scan_member(m_id: str, m_name: str, pbar):
-                """Scan a single member's blogs and collect entries."""
-                async with scan_sem:
-                    member_entries = []
-                    post_count = 0
-                    async for entry in scraper.get_blogs(m_id):
-                        member_entries.append((entry, m_id, m_name))
-                        post_count += 1
-                    member_counts[m_id] = post_count
-                    pbar.update(1)
-                    return member_entries
-
-            with tqdm(
-                total=len(target_ids),
+            target_count = len(member_ids) if member_ids else len(members_cache or {})
+            scan_pbar = tqdm(
+                total=target_count or None,
                 desc=get_string("blog_tqdm_scanning"),
                 unit="member",
-            ) as scan_pbar:
-                # Prepare scan tasks for all members
-                scan_tasks = []
-                for m_id in target_ids:
-                    m_id = str(m_id)
-                    m_name = members.get(m_id, f"Member_{m_id}")
-                    scan_tasks.append(scan_member(m_id, m_name, scan_pbar))
+            )
 
-                # Run all scans in parallel
-                results = await asyncio.gather(*scan_tasks)
+            def on_member_done(name, new_count):
+                scan_pbar.update(1)
+                scan_pbar.set_postfix_str(f"{name} (+{new_count})")
 
-                # Flatten results
-                for member_entries in results:
-                    all_tasks.extend(member_entries)
+            try:
+                index = await blog_backup.sync_blog_metadata(
+                    session,
+                    self.output_dir,
+                    self.group,
+                    member_ids=member_ids,
+                    on_member_done=on_member_done,
+                )
+            finally:
+                scan_pbar.close()
 
-            if not all_tasks:
-                logger.warning(get_string("blog_no_blogs"))
+            # Stage 2: content + images.
+            queue = blog_backup.build_download_queue(
+                self.output_dir, self.group, index, member_ids=member_ids
+            )
+            if not queue:
+                logger.info(get_string("blog_all_cached"))
                 return
 
             logger.info(get_string("blog_downloading"))
-            logger.info(get_string("blog_found_posts").format(len(all_tasks)))
+            logger.info(get_string("blog_found_posts").format(len(queue)))
 
-            # Phase 2: Parallel download with Semaphore
-            dl_sem = asyncio.Semaphore(20)  # 20 concurrent downloads
+            dl_pbar = tqdm(
+                total=len(queue), desc=get_string("blog_tqdm_downloading"), unit="post"
+            )
+            try:
+                stats = await blog_backup.download_blog_content(
+                    session,
+                    self.output_dir,
+                    self.group,
+                    queue,
+                    index=index,
+                    write_html=self.write_html,
+                    on_item_done=lambda: dl_pbar.update(1),
+                )
+            finally:
+                dl_pbar.close()
 
-            async def download_task(task_data, pbar):
-                entry, m_id, m_name = task_data
-                async with dl_sem:
-                    await self._save_blog_html(
-                        session, entry, m_id, m_name, display_name
-                    )
-                    pbar.update(1)
-
-            with tqdm(
-                total=len(all_tasks),
-                desc=get_string("blog_tqdm_downloading"),
-                unit="post",
-            ) as dl_pbar:
-                await asyncio.gather(*[download_task(t, dl_pbar) for t in all_tasks])
-
-    async def _save_blog_html(
-        self, session, entry, member_id: str, member_name: str, display_name: str
-    ) -> Path:
-        """
-        Save a blog entry as HTML with downloaded images.
-        For CLI users who want human-readable offline viewing.
-
-        Returns:
-            Path to the saved directory.
-        """
-        import aiofiles  # type: ignore[import-untyped]
-
-        # Folder: output/{DisplayName}/blogs/{MemberName}/{Date}_{ID}/
-        safe_name = "".join(
-            c
-            for c in member_name
-            if c.isalnum() or c in (" ", "_", "-", "ぁ-んァ-ン一-龯")
-        ).strip()
-        if not safe_name:
-            safe_name = f"member_{member_id}"
-        date_str = entry.published_at.strftime("%Y%m%d")
-        dir_name = f"{date_str}_{entry.id}"
-
-        base_dir = self.output_dir / display_name / "blogs" / safe_name / dir_name
-        base_dir.mkdir(parents=True, exist_ok=True)
-
-        # Download Images & rewrite URLs
-        content = entry.content
-        img_dir = base_dir / "images"
-
-        if entry.images:
-            img_dir.mkdir(exist_ok=True)
-
-            for idx, img_url in enumerate(entry.images):
-                ext = img_url.split(".")[-1]
-                if "?" in ext:
-                    ext = ext.split("?")[0]
-                img_name = f"img_{idx}.{ext}"
-                img_path = img_dir / img_name
-                local_path = f"./images/{img_name}"
-
-                try:
-                    async with session.get(img_url) as resp:
-                        if resp.status == 200:
-                            data = await resp.read()
-                            async with aiofiles.open(img_path, "wb") as f:
-                                await f.write(data)
-                            content = content.replace(img_url, local_path)
-                except Exception as e:
-                    if logger:
-                        logger.warning(f"Failed to download image {img_url}: {e}")
-
-        # Generate HTML for viewing
-        full_html = f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>{entry.title}</title>
-<style>
-body {{ font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; line-height: 1.6; }}
-img {{ max-width: 100%; height: auto; }}
-.date {{ color: #666; font-size: 0.9em; }}
-h1 {{ margin-bottom: 0.5em; }}
-</style>
-</head>
-<body>
-<h1>{entry.title}</h1>
-<div class="date">{entry.published_at.strftime("%Y-%m-%d %H:%M")}</div>
-<hr>
-{content}
-</body>
-</html>"""
-
-        async with aiofiles.open(base_dir / "index.html", "w", encoding="utf-8") as f:
-            await f.write(full_html)
-
-        return base_dir
-
-    async def _save_blog_json(
-        self, session, entry, member_id: str, member_name: str, display_name: str
-    ) -> Path:
-        """
-        Save a blog entry as structured JSON for GUI app (SakaDesk).
-        Optimized for programmatic access, search indexing, and vector DB.
-
-        Returns:
-            Path to the saved directory.
-        """
-        import aiofiles
-        from bs4 import BeautifulSoup
-
-        # Folder: output/{DisplayName}/blogs/{MemberName}/{Date}_{ID}/
-        safe_name = "".join(
-            c
-            for c in member_name
-            if c.isalnum() or c in (" ", "_", "-", "ぁ-んァ-ン一-龯")
-        ).strip()
-        if not safe_name:
-            safe_name = f"member_{member_id}"
-        date_str = entry.published_at.strftime("%Y%m%d")
-        dir_name = f"{date_str}_{entry.id}"
-
-        base_dir = self.output_dir / display_name / "blogs" / safe_name / dir_name
-        base_dir.mkdir(parents=True, exist_ok=True)
-
-        # Download Images & build resources list
-        content = entry.content
-        images_data = []
-        img_dir = base_dir / "images"
-
-        if entry.images:
-            img_dir.mkdir(exist_ok=True)
-
-            for idx, img_url in enumerate(entry.images):
-                ext = img_url.split(".")[-1]
-                if "?" in ext:
-                    ext = ext.split("?")[0]
-                img_name = f"img_{idx}.{ext}"
-                img_path = img_dir / img_name
-                local_path = f"./images/{img_name}"
-
-                try:
-                    async with session.get(img_url) as resp:
-                        if resp.status == 200:
-                            data = await resp.read()
-                            async with aiofiles.open(img_path, "wb") as f:
-                                await f.write(data)
-                            content = content.replace(img_url, local_path)
-                            images_data.append(
-                                {
-                                    "original_url": img_url,
-                                    "local_path": local_path,
-                                    "caption": "",
-                                }
-                            )
-                except Exception as e:
-                    if logger:
-                        logger.warning(f"Failed to download image {img_url}: {e}")
-
-        # Extract plain text for search/vector DB
-        soup = BeautifulSoup(content, "html.parser")
-        plain_text = soup.get_text(separator="\n").strip()
-
-        # Structured JSON Schema
-        blog_data = {
-            "meta": {
-                "id": entry.id,
-                "member_id": member_id,
-                "member_name": member_name,
-                "title": entry.title,
-                "published_at": entry.published_at.isoformat(),
-                "url": entry.url,
-                "tags": [],
-            },
-            "content": {"html_raw": content, "plain_text": plain_text},
-            "resources": {"images": images_data},
-        }
-
-        async with aiofiles.open(base_dir / "blog.json", "w", encoding="utf-8") as f:
-            await f.write(json.dumps(blog_data, ensure_ascii=False, indent=2))
-
-        return base_dir
+            logger.info(
+                get_string("blog_stats").format(
+                    stats["downloaded"], stats["removed"], stats["failed"]
+                )
+            )
+            logger.info(
+                get_string("run_output").format(
+                    paths.blogs_root(self.output_dir, self.group).absolute()
+                )
+            )
 
     async def run(
         self,
@@ -983,136 +825,91 @@ h1 {{ margin-bottom: 0.5em; }}
                     )
                     logger.debug("Tokens refreshed and saved to secure storage.")
 
-                # Initialize SyncManager
-                self.manager = SyncManager(self.client, self.output_dir)
+                # SyncManager writes messages/ and sync_state.json relative to
+                # the root it is given, so hand it the per-service root rather
+                # than the bare output dir — that is what puts the tree at
+                # {output}/日向坂46/messages/... like SakaDesk's.
+                self.service_root.mkdir(parents=True, exist_ok=True)
+                self.manager = SyncManager(self.client, self.service_root)
 
-                # 2. Discovery
-                target_groups = []
-                # Always fetch groups to get proper names for folder creation
-                all_groups = await self.client.get_groups(
-                    session, include_inactive=True
-                )
-                if group_ids:
-                    # Find specified groups from fetched list to get proper names
-                    target_groups = [g for g in all_groups if g["id"] in group_ids]
-                    # Fallback for groups not in subscription list
-                    found_ids = {g["id"] for g in target_groups}
-                    for gid in group_ids:
-                        if gid not in found_ids:
-                            target_groups.append({"id": gid, "name": str(gid)})
-                else:
-                    # Use normal filtering for "scan all" mode
-                    target_groups = await self.client.get_groups(
-                        session, include_inactive=include_offline
+                metadata_file = paths.sync_metadata_path(self.output_dir, self.group)
+                metadata = await meta_store.load_metadata(metadata_file)
+
+                # Phase 1: Discovery
+                logger.info(get_string("run_phase_1").strip())
+                scan_pbar = tqdm(desc=get_string("run_tqdm_scanning"), unit="group")
+                try:
+                    tasks = await message_sync.discover_tasks(
+                        session,
+                        self.client,
+                        metadata,
+                        group_ids=group_ids,
+                        member_ids=member_ids,
+                        include_offline=include_offline,
+                        on_group_done=lambda: scan_pbar.update(1),
                     )
+                finally:
+                    scan_pbar.close()
 
-                if not target_groups:
+                if not tasks:
                     logger.warning(get_string("run_no_groups"))
                     return
-
-                logger.info(get_string("run_phase_1").strip())
-                tasks = []
-
-                # Fetch members for all groups in parallel
-                async def fetch_group_members(group):
-                    return group, await self.client.get_members(session, group["id"])
-
-                group_results = await asyncio.gather(
-                    *[fetch_group_members(g) for g in target_groups]
-                )
-
-                target_str_ids = (
-                    set(str(mid) for mid in member_ids) if member_ids else None
-                )
-                for group, members in group_results:
-                    if not members:
-                        continue
-                    if target_str_ids:
-                        members = [m for m in members if str(m["id"]) in target_str_ids]
-                    for m in members:
-                        tasks.append({"group": group, "member": m})
 
                 logger.info(
                     get_string("run_found_timelines").format(len(tasks)).strip()
                 )
 
-                # Setup Output
-                self.output_dir.mkdir(parents=True, exist_ok=True)
-
-                # Phase 2: Metadata (Group-Level Timeline Fetch)
-                # Fetch timeline once per group, distribute to all members
+                # Phase 2: one timeline fetch per group, distributed to members
                 logger.info(get_string("run_phase_2"))
                 media_queue = []
-
-                tasks_by_group: dict[int, list] = defaultdict(list)
-                for t in tasks:
-                    tasks_by_group[t["group"]["id"]].append(t)
-
-                sem = asyncio.Semaphore(5)
-
-                async def sync_group(gid, group_tasks, pbar):
-                    async with sem:
-                        # Find minimum last_id across all members in this group
-                        since_ids = [
-                            self.manager.get_last_id(gid, t["member"]["id"])
-                            for t in group_tasks
-                        ]
-                        min_since_id = (
-                            None
-                            if any(s is None for s in since_ids)
-                            else min(since_ids)
-                        )
-
-                        # ONE API call for the entire group
-                        all_messages = await self.manager.client.get_messages(
-                            session, gid, since_id=min_since_id
-                        )
-
-                        # Process each member using pre-fetched data
-                        for t in group_tasks:
-
-                            async def on_progress(
-                                date_str, count, name=t["member"]["name"]
-                            ):
-                                pbar.set_postfix_str(f"Latest: {name} ({count})")
-
-                            await self.manager.sync_member(
-                                session,
-                                t["group"],
-                                t["member"],
-                                media_queue,
-                                progress_callback=on_progress,
-                                prefetched_messages=all_messages,
-                            )
-                            pbar.update(1)
-
                 pbar = tqdm(
                     total=len(tasks),
                     desc=get_string("run_tqdm_fetching"),
                     unit="member",
                 )
-                await asyncio.gather(
-                    *[sync_group(gid, gt, pbar) for gid, gt in tasks_by_group.items()]
-                )
-                pbar.close()
+
+                def on_member_done(name, count):
+                    pbar.update(1)
+                    pbar.set_postfix_str(f"{name} ({count})")
+
+                try:
+                    total_new, members_with_new = await message_sync.sync_messages(
+                        session,
+                        self.manager,
+                        tasks,
+                        media_queue,
+                        metadata,
+                        initial_limit=self.initial_limit,
+                        on_member_done=on_member_done,
+                    )
+                finally:
+                    pbar.close()
 
                 # Phase 3: Media
                 if media_queue:
                     logger.info(
                         get_string("run_phase_3").format(len(media_queue)).strip()
                     )
-                    chunk_size = 50
-                    with tqdm(total=len(media_queue), unit="file") as pbar:
-                        for i in range(0, len(media_queue), chunk_size):
-                            chunk = media_queue[i : i + chunk_size]
+                    with tqdm(total=len(media_queue), unit="file") as media_pbar:
+                        await message_sync.download_media(
+                            session,
+                            self.manager,
+                            media_queue,
+                            on_chunk_done=media_pbar.update,
+                        )
 
-                            await self.manager.process_media_queue(
-                                session, chunk, concurrency=5
-                            )
-                            pbar.update(len(chunk))
+                # Written last so last_sync only advances on a completed run.
+                meta_store.stamp_last_sync(metadata)
+                await meta_store.save_metadata(metadata_file, metadata)
 
                 logger.info(get_string("run_done").strip())
-                logger.info(get_string("run_output").format(self.output_dir.absolute()))
+                logger.info(
+                    get_string("run_new_messages").format(total_new, members_with_new)
+                )
+                logger.info(
+                    get_string("run_output").format(self.service_root.absolute())
+                )
+
 
         except Exception as e:
             logger.error(get_string("run_error").format(e))
@@ -1155,6 +952,13 @@ def get_parser():
         "-v", "--verbose", action="store_true", help=get_string("help_verbose")
     )
     parser.add_argument("--blog", action="store_true", help=get_string("help_blog"))
+    parser.add_argument("--html", action="store_true", help=get_string("help_html"))
+    parser.add_argument(
+        "--initial-limit",
+        type=int,
+        default=message_sync.DEFAULT_INITIAL_MESSAGE_LIMIT,
+        help=get_string("help_initial_limit"),
+    )
     parser.add_argument("--ask", type=str, metavar="QUERY", help=get_string("help_ask"))
     parser.add_argument(
         "--kb-index", action="store_true", help=get_string("help_kb_index")
@@ -1316,7 +1120,7 @@ def main():
     member_ids = []
     if args.members:
         for m in args.members:
-            member_ids.extend(parse_int_list(m))
+            member_ids.extend(parse_id_list(m))
 
     # Interactive Mode overrides
     # Enable if explicitly requested OR implicitly if no service specified (and not cleanup)
@@ -1357,7 +1161,12 @@ def main():
 
     target_group = Group(service_str)
 
-    cli = SakaCLI(output_dir=output_dir, group=target_group)
+    cli = SakaCLI(
+        output_dir=output_dir,
+        group=target_group,
+        write_html=args.html,
+        initial_limit=args.initial_limit,
+    )
 
     if args.cleanup:
         asyncio.run(cli.cleanup_wizard())
