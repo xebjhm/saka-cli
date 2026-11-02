@@ -4,10 +4,6 @@
   usage: saka-cli [-h] [-s {nogizaka46,sakurazaka46,hinatazaka46}] [-o OUTPUT]
                   [-i] [--include-offline] [-g GROUP] [-m [MEMBERS ...]]
                   [--cleanup] [--lang {en,ja,zh-TW,zh-CN,yue}] [-v] [--blog]
-                  [--ask QUERY] [--kb-index] [--kb-format {text,json,brief}]
-                  [--kb-members DIR] [--kb-aliases FILE] [--kb-call-names PATH]
-                  [--llm-backend {cloud,local}] [--llm-base-url URL]
-                  [--llm-model NAME] [--hw-suggest]
   
   pysaka CLI - Sakamichi Series Media Scraper
   
@@ -28,23 +24,6 @@
                           Language (en, ja, zh-TW, zh-CN, yue)
     -v, --verbose         Enable verbose logging
     --blog                Enable Blog Backup mode (all groups supported)
-    --ask QUERY           Ask a question against the local knowledge base
-    --kb-index            Build the local knowledge base index from synced data
-    --kb-format {text,json,brief}
-                          Output format for --ask results (text, json, brief)
-    --kb-members DIR      Directory containing <service>.json member roster
-                          files
-    --kb-aliases FILE     Optional curated aliases JSON file for the knowledge
-                          base
-    --kb-call-names PATH  Optional curated call-names JSON file (directional
-                          per-author nicknames) for the knowledge base
-    --llm-backend {cloud,local}
-                          LLM backend for --ask: cloud (Gemini) or local
-                          (Ollama/llama.cpp)
-    --llm-base-url URL    Base URL for the local LLM backend (OpenAI-compatible)
-    --llm-model NAME      Model name to use with the selected LLM backend
-    --hw-suggest          Detect hardware and suggest a local-vs-cloud LLM
-                          backend, then exit
   
   '''
 # ---
