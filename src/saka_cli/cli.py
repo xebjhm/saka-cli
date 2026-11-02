@@ -115,7 +115,7 @@ class SakaCLI:
         # Store config in user data directory for consistent location across platforms
         # Windows: %APPDATA%/pysaka, macOS: ~/Library/Application Support/pysaka, Linux: ~/.local/share/pysaka
         self.config_file = get_user_data_dir() / f"config_{group.value}.json"
-        self.client = None
+        self.client: Optional[Client] = None
         self.manager = None
 
     def load_config(self) -> dict:
