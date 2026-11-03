@@ -1,5 +1,6 @@
 import asyncio
 import argparse
+import time
 import json
 import traceback
 import sys
@@ -895,13 +896,19 @@ h1 {{ margin-bottom: 0.5em; }}
 
         Raises:
             AuthError: Session expired or refresh failed; never swallowed here.
+            ApiError: ``extra_room_members`` failed for an already-scanned room.
+                Nothing is synced for the room, so cursors do not skip the
+                extra authors' messages. For a room being scanned the error is
+                logged and only the listed members are synced.
         """
         manager = self.manager
         if manager is None:
             raise RuntimeError("SyncManager is not initialised")
 
         scan = not manager.history_scanned(gid)
+        started = time.monotonic()
         if scan:
+            logger.info("room_scan_started", group_id=gid)
             async with scan_sem:
                 all_messages = await manager.client.get_messages(
                     session, gid, since_id=None, page_delay=1.0
@@ -925,15 +932,29 @@ h1 {{ margin-bottom: 0.5em; }}
         except AuthError:
             raise
         except ApiError as e:
-            # Keep syncing the listed members; the scan flag stays unset because
-            # the room's archive cannot be complete without its other authors.
+            action = "continue" if scan else "fail_room"
             logger.warning(
                 "extra_room_members_failed",
                 group_id=gid,
                 error_type=type(e).__name__,
+                scanned=not scan,
+                action=action,
             )
+            if not scan:
+                # Syncing only the listed members would advance their cursors
+                # past the extra authors' messages, which are never re-fetched.
+                # Fail the room; the next run retries the same window.
+                raise
+            # Scanning: keep syncing the listed members. The scan flag stays
+            # unset because the archive is incomplete without the other authors.
             extra = []
         if extra:
+            logger.info(
+                "room_extra_members_found",
+                group_id=gid,
+                member_ids=[m["id"] for m in extra],
+                count=len(extra),
+            )
             pbar.total += len(extra)
             pbar.refresh()
 
@@ -954,8 +975,21 @@ h1 {{ margin-bottom: 0.5em; }}
             )
             pbar.update(1)
 
-        if scan and await manager.room_archive_complete(group, all_messages):
+        if not scan:
+            return
+        marked = await manager.room_archive_complete(group, all_messages)
+        if marked:
             manager.mark_history_scanned(gid)
+        else:
+            logger.warning("room_scan_incomplete", group_id=gid)
+        logger.info(
+            "room_scan_finished",
+            group_id=gid,
+            fetched=len(all_messages),
+            extras=len(extra),
+            elapsed_s=round(time.monotonic() - started, 1),
+            marked=bool(marked),
+        )
 
     async def run(
         self,

@@ -4,6 +4,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from structlog.testing import capture_logs
 from pysaka import ApiError, Group, RateLimitedError, SessionExpiredError
 
 from saka_cli.cli import SakaCLI
@@ -102,13 +103,57 @@ async def test_extra_members_error_degrades_to_api_members_only():
     manager.mark_history_scanned.assert_not_called()
 
 
-async def test_extra_members_api_error_is_not_fatal():
+async def test_extra_members_api_error_is_not_fatal_while_scanning():
     cli, manager = make_cli(scanned=False, complete=False)
     manager.extra_room_members.side_effect = ApiError("boom", 500)
 
     await run_room(cli)
 
     assert manager.sync_member.await_count == 1
+    manager.mark_history_scanned.assert_not_called()
+
+
+async def test_extra_members_error_on_scanned_room_fails_before_any_sync():
+    """Syncing only the listed members would advance their cursors past the
+    extras' messages, which an incremental fetch never returns again."""
+    cli, manager = make_cli(scanned=True, last_id=500)
+    manager.extra_room_members.side_effect = RateLimitedError("slow down")
+
+    with pytest.raises(RateLimitedError):
+        await run_room(cli)
+
+    manager.sync_member.assert_not_awaited()
+    manager.mark_history_scanned.assert_not_called()
+
+
+async def test_scans_never_overlap_across_rooms_sharing_scan_sem():
+    events = []
+
+    async def get_messages(session, gid, **kwargs):
+        events.append(("start", gid))
+        await asyncio.sleep(0.01)
+        events.append(("end", gid))
+        return MESSAGES
+
+    cli, manager = make_cli(scanned=False, extras=[])
+    manager.client.get_messages = get_messages
+    scan_sem = asyncio.Semaphore(1)
+
+    async def room(gid):
+        await cli._sync_room(
+            "session",
+            gid,
+            [{"group": {"id": gid, "name": "r"}, "member": MEMBER_79}],
+            [],
+            {},
+            scan_sem,
+            MagicMock(total=1),
+        )
+
+    await asyncio.gather(room(1), room(2))
+
+    assert [e[0] for e in events] == ["start", "end", "start", "end"]
+    assert events[0][1] == events[1][1]
 
 
 async def test_auth_error_from_extra_members_propagates():
@@ -119,3 +164,58 @@ async def test_auth_error_from_extra_members_propagates():
         await run_room(cli)
 
     manager.mark_history_scanned.assert_not_called()
+
+
+def events_by_name(logs):
+    return {entry["event"]: entry for entry in logs}
+
+
+async def test_scan_logs_breadcrumbs_without_message_content():
+    cli, manager = make_cli(scanned=False, complete=True)
+
+    with capture_logs() as logs:
+        await run_room(cli)
+
+    events = events_by_name(logs)
+    assert events["room_scan_started"]["group_id"] == GID
+    assert events["room_extra_members_found"]["member_ids"] == [22, 0]
+    assert events["room_extra_members_found"]["count"] == 2
+    finished = events["room_scan_finished"]
+    assert finished["group_id"] == GID
+    assert finished["fetched"] == len(MESSAGES)
+    assert finished["extras"] == 2
+    assert finished["marked"] is True
+    assert isinstance(finished["elapsed_s"], float)
+    assert "room_scan_incomplete" not in events
+
+
+async def test_incomplete_scan_logs_warning():
+    cli, manager = make_cli(scanned=False, complete=False)
+
+    with capture_logs() as logs:
+        await run_room(cli)
+
+    events = events_by_name(logs)
+    assert events["room_scan_incomplete"]["group_id"] == GID
+    assert events["room_scan_incomplete"]["log_level"] == "warning"
+    assert events["room_scan_finished"]["marked"] is False
+
+
+async def test_extras_failure_logs_scanned_and_action():
+    cli, manager = make_cli(scanned=False, complete=False)
+    manager.extra_room_members.side_effect = ApiError("boom", 500)
+    with capture_logs() as logs:
+        await run_room(cli)
+    failed = events_by_name(logs)["extra_room_members_failed"]
+    assert failed["error_type"] == "ApiError"
+    assert failed["scanned"] is False
+    assert failed["action"] == "continue"
+    assert failed["group_id"] == GID
+
+    cli, manager = make_cli(scanned=True, last_id=500)
+    manager.extra_room_members.side_effect = ApiError("boom", 500)
+    with capture_logs() as logs, pytest.raises(ApiError):
+        await run_room(cli)
+    failed = events_by_name(logs)["extra_room_members_failed"]
+    assert failed["scanned"] is True
+    assert failed["action"] == "fail_room"
