@@ -261,7 +261,12 @@ async def test_failing_room_does_not_abort_other_rooms():
     failed = events_by_name(logs)["room_sync_failed"]
     assert failed["group_id"] == 43
     assert failed["error_type"] == "ApiError"
-    assert "x" not in {str(v) for v in failed.values()}
+    assert set(failed) == {"event", "log_level", "group_id", "error_type"}
+    partial = events_by_name(logs)["rooms_sync_partial_failure"]
+    assert partial["log_level"] == "warning"
+    assert partial["failed"] == 1
+    assert partial["group_ids"] == [43]
+    assert partial["total"] == 2
 
 
 async def test_auth_error_is_raised_after_all_rooms_finish():
@@ -286,3 +291,55 @@ async def test_all_rooms_failing_raises_first_error():
 
     assert len([e for e in logs if e["event"] == "room_sync_failed"]) == 2
     manager.sync_member.assert_not_awaited()
+
+
+async def test_all_rooms_failing_logs_no_partial_summary():
+    cli, manager = make_cli(scanned=True, extras=[], last_id=500)
+    manager.client.get_messages = AsyncMock(side_effect=ApiError("down", 500))
+
+    with capture_logs() as logs, pytest.raises(ApiError):
+        await cli._sync_rooms("session", TASKS_TWO_ROOMS, [])
+
+    assert "rooms_sync_partial_failure" not in events_by_name(logs)
+
+
+async def test_incremental_room_logs_sync_finished():
+    cli, manager = make_cli(scanned=True, extras=EXTRAS[:1], last_id=500)
+
+    with capture_logs() as logs:
+        await run_room(cli)
+
+    done = events_by_name(logs)["room_sync_finished"]
+    assert done["group_id"] == GID
+    assert done["since_id"] == 500
+    assert done["fetched"] == len(MESSAGES)
+    assert done["members"] == 2
+    assert done["extras"] == 1
+    assert "room_scan_started" not in events_by_name(logs)
+
+
+async def test_scan_elapsed_excludes_time_queued_for_scan_sem():
+    cli, manager = make_cli(scanned=False, complete=True, extras=[])
+    scan_sem = asyncio.Semaphore(1)
+    await scan_sem.acquire()
+
+    async def release_later():
+        await asyncio.sleep(0.2)
+        scan_sem.release()
+
+    releaser = asyncio.create_task(release_later())
+    with capture_logs() as logs:
+        await cli._sync_room(
+            "session",
+            GID,
+            [{"group": GROUP, "member": MEMBER_79}],
+            [],
+            {},
+            scan_sem,
+            MagicMock(total=1),
+        )
+    await releaser
+
+    finished = events_by_name(logs)["room_scan_finished"]
+    assert finished["waited_s"] >= 0.1
+    assert finished["elapsed_s"] < 0.1

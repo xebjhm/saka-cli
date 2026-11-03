@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   once (`get_messages(since_id=None, page_delay=1.0)`, one room at a time,
   `sync_member(ignore_cursor=True)`) and marks it with `mark_history_scanned`
   once `room_archive_complete`; later runs use the normal cursor.
+- One failing chat no longer aborts the whole sync: `SakaCLI._sync_rooms` lets
+  the other rooms finish (and their media download), logs `room_sync_failed`
+  for the failed one, and retries it on the next run. Auth errors are still
+  raised, after all rooms have ended.
 
 ## [0.1.1] - 2026-01-11
 

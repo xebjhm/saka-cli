@@ -906,10 +906,16 @@ h1 {{ margin-bottom: 0.5em; }}
             raise RuntimeError("SyncManager is not initialised")
 
         scan = not manager.history_scanned(gid)
-        started = time.monotonic()
+        queued_at = time.monotonic()
+        min_since_id = None
+        waited_s = 0.0
+        started = queued_at
         if scan:
             logger.info("room_scan_started", group_id=gid)
             async with scan_sem:
+                # Time queued behind other rooms' scans is not scan time.
+                started = time.monotonic()
+                waited_s = started - queued_at
                 all_messages = await manager.client.get_messages(
                     session, gid, since_id=None, page_delay=1.0
                 )
@@ -976,6 +982,14 @@ h1 {{ margin-bottom: 0.5em; }}
             pbar.update(1)
 
         if not scan:
+            logger.info(
+                "room_sync_finished",
+                group_id=gid,
+                since_id=min_since_id,
+                fetched=len(all_messages),
+                members=len(api_members) + len(extra),
+                extras=len(extra),
+            )
             return
         marked = await manager.room_archive_complete(group, all_messages)
         if marked:
@@ -988,6 +1002,7 @@ h1 {{ margin-bottom: 0.5em; }}
             fetched=len(all_messages),
             extras=len(extra),
             elapsed_s=round(time.monotonic() - started, 1),
+            waited_s=round(waited_s, 1),
             marked=bool(marked),
         )
 
@@ -1045,6 +1060,7 @@ h1 {{ margin-bottom: 0.5em; }}
             pbar.close()
 
         errors = []
+        failed_gids = []
         for gid, result in zip(tasks_by_group, results):
             if isinstance(result, BaseException):
                 if not isinstance(result, Exception):
@@ -1055,11 +1071,19 @@ h1 {{ margin-bottom: 0.5em; }}
                     error_type=type(result).__name__,
                 )
                 errors.append(result)
+                failed_gids.append(gid)
         for error in errors:
             if isinstance(error, AuthError):
                 raise error
         if errors and len(errors) == len(results):
             raise errors[0]
+        if errors:
+            logger.warning(
+                "rooms_sync_partial_failure",
+                failed=len(errors),
+                group_ids=failed_gids,
+                total=len(results),
+            )
 
     async def run(
         self,
