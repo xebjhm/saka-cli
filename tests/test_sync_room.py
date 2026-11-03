@@ -524,3 +524,65 @@ async def test_no_summary_when_nothing_was_deferred():
     names = events_by_name(logs)
     assert "sync_rate_limit_summary" not in names
     assert "room_sync_deferred" not in names
+
+
+async def test_rate_limit_from_extra_members_in_scan_room_trips_breaker():
+    cli, manager = make_cli(scanned=False, extras=[])
+    manager.extra_room_members.side_effect = RateLimitedError("slow", retry_after=7)
+    rate_limited = asyncio.Event()
+
+    with capture_logs() as logs:
+        deferred = await cli._sync_room(
+            "session",
+            GID,
+            [{"group": GROUP, "member": MEMBER_79}],
+            [],
+            {},
+            asyncio.Semaphore(1),
+            MagicMock(total=1),
+            rate_limited,
+        )
+
+    assert deferred is False  # the scan degrades to listed members, as before
+    assert rate_limited.is_set()
+    limited = [e for e in logs if e["event"] == "sync_rate_limited"]
+    assert len(limited) == 1
+    assert limited[0]["group_id"] == GID
+    assert limited[0]["retry_after"] == 7
+    manager.mark_history_scanned.assert_called_once_with(GID)  # unchanged behaviour
+
+
+async def test_rate_limit_from_extra_members_defers_later_rooms():
+    cli, manager, calls, _ = make_rooms_cli(scanned_gids=set())
+    manager.extra_room_members.side_effect = RateLimitedError("slow")
+
+    with capture_logs() as logs:
+        await cli._sync_rooms("session", THREE_ROOMS, [])
+
+    assert [gid for gid, _ in calls] == [1]
+    deferred = [e for e in logs if e["event"] == "room_sync_deferred"]
+    assert sorted(e["group_id"] for e in deferred) == [2, 3]
+    assert len([e for e in logs if e["event"] == "sync_rate_limited"]) == 1
+
+
+async def test_pacing_reset_even_if_setting_it_fails_midway():
+    cli, manager, _, _ = make_rooms_cli(scanned_gids=set())
+
+    class Boom(Exception):
+        pass
+
+    def logging_info(event, **kw):
+        if event == "sync_timeline_pacing":
+            raise Boom
+
+    import saka_cli.cli as cli_mod
+
+    original = cli_mod.logger
+    cli_mod.logger = MagicMock(info=logging_info)
+    try:
+        with pytest.raises(Boom):
+            await cli._sync_rooms("session", THREE_ROOMS, [])
+    finally:
+        cli_mod.logger = original
+
+    assert manager.client.timeline_min_interval == 0.0

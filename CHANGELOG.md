@@ -21,7 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `get_members` list and posts without a `member_id` (member 0, the room
   author) via `SyncManager.extra_room_members`. Before, their messages were
   never saved. The first run after updating re-reads each room's full history
-  once (`get_messages(since_id=None, page_delay=1.0)`, one room at a time,
+  once (`get_messages(since_id=None, page_delay=0)` with pacing from
+  `Client.timeline_min_interval`, one room at a time,
   `sync_member(ignore_cursor=True)`) and marks it with `mark_history_scanned`
   once `room_archive_complete`; later runs use the normal cursor.
 - One failing chat no longer aborts the whole sync: `SakaCLI._sync_rooms` lets

@@ -908,12 +908,19 @@ h1 {{ margin-bottom: 0.5em; }}
                 rate_limited,
             )
         except RateLimitedError as e:
-            if not rate_limited.is_set():
-                rate_limited.set()
-                logger.warning(
-                    "sync_rate_limited", group_id=gid, retry_after=e.retry_after
-                )
+            self._trip_rate_limit(rate_limited, gid, e)
             raise
+
+    @staticmethod
+    def _trip_rate_limit(
+        rate_limited: asyncio.Event, gid: int, error: RateLimitedError
+    ) -> None:
+        """Set the per-run 429 flag; log ``sync_rate_limited`` the first time."""
+        if not rate_limited.is_set():
+            rate_limited.set()
+            logger.warning(
+                "sync_rate_limited", group_id=gid, retry_after=error.retry_after
+            )
 
     async def _sync_room_body(
         self,
@@ -1016,6 +1023,8 @@ h1 {{ margin-bottom: 0.5em; }}
         except AuthError:
             raise
         except ApiError as e:
+            if isinstance(e, RateLimitedError):
+                self._trip_rate_limit(rate_limited, gid, e)
             action = "continue" if scan else "fail_room"
             logger.warning(
                 "extra_room_members_failed",
@@ -1151,14 +1160,14 @@ h1 {{ margin-bottom: 0.5em; }}
             1 for gid in tasks_by_group if not manager.history_scanned(gid)
         )
         paced = scan_rooms > 0
-        if paced:
-            manager.client.timeline_min_interval = SCAN_TIMELINE_INTERVAL
-            logger.info(
-                "sync_timeline_pacing",
-                scan_rooms=scan_rooms,
-                interval=SCAN_TIMELINE_INTERVAL,
-            )
         try:
+            if paced:
+                manager.client.timeline_min_interval = SCAN_TIMELINE_INTERVAL
+                logger.info(
+                    "sync_timeline_pacing",
+                    scan_rooms=scan_rooms,
+                    interval=SCAN_TIMELINE_INTERVAL,
+                )
             results = await asyncio.gather(
                 *[sync_group(gid, gt) for gid, gt in tasks_by_group.items()],
                 return_exceptions=True,
