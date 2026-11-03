@@ -201,6 +201,33 @@ async def test_incomplete_scan_logs_warning():
     assert events["room_scan_finished"]["marked"] is False
 
 
+async def test_unsaved_scan_mark_logs_warning_and_reports_unmarked():
+    cli, manager = make_cli(scanned=False, complete=True)
+    manager.mark_history_scanned.return_value = False
+
+    with capture_logs() as logs:
+        await run_room(cli)
+
+    events = events_by_name(logs)
+    assert events["room_scan_mark_failed"]["group_id"] == GID
+    assert events["room_scan_mark_failed"]["log_level"] == "warning"
+    assert events["room_scan_finished"]["marked"] is False
+    assert "room_scan_incomplete" not in events
+
+
+@pytest.mark.parametrize("saved", [True, None])
+async def test_saved_scan_mark_keeps_marked_and_logs_no_failure(saved):
+    cli, manager = make_cli(scanned=False, complete=True)
+    manager.mark_history_scanned.return_value = saved
+
+    with capture_logs() as logs:
+        await run_room(cli)
+
+    events = events_by_name(logs)
+    assert "room_scan_mark_failed" not in events
+    assert events["room_scan_finished"]["marked"] is True
+
+
 async def test_extras_failure_logs_scanned_and_action():
     cli, manager = make_cli(scanned=False, complete=False)
     manager.extra_room_members.side_effect = ApiError("boom", 500)

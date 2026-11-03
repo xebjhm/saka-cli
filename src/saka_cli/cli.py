@@ -1080,7 +1080,10 @@ h1 {{ margin-bottom: 0.5em; }}
             return False
         marked = await manager.room_archive_complete(group, all_messages)
         if marked:
-            manager.mark_history_scanned(gid)
+            saved = manager.mark_history_scanned(gid)
+            if saved is False:
+                logger.warning("room_scan_mark_failed", group_id=gid)
+                marked = False
         else:
             logger.warning("room_scan_incomplete", group_id=gid)
         logger.info(
