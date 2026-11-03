@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Rate-limit protection for the first full-history read: while any room still
+  needs its scan, `SakaCLI._sync_rooms` sets `Client.timeline_min_interval` to
+  3.0 s (reset afterwards) and scans use `page_delay=0`. An HTTP 429
+  (`RateLimitedError`) now stops the run from starting more timeline fetches:
+  the remaining rooms are deferred (`room_sync_deferred`), keep their cursors
+  and scan state, and are retried by the next run. Needs a `pysaka` release
+  with `timeline_min_interval` (0.4.6).
+
 ### Fixed
 - Phase 2 (`SakaCLI._sync_room`) now syncs authors outside a room's current
   `get_members` list and posts without a `member_id` (member 0, the room

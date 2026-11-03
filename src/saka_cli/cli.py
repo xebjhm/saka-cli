@@ -21,6 +21,7 @@ from pysaka import (
     SessionExpiredError,
     AuthError,
     ApiError,
+    RateLimitedError,
 )
 
 from saka_cli.logging_setup import setup_logging
@@ -29,6 +30,10 @@ from saka_cli.strings import get_string, set_language, get_language
 # Logger created at import as a lazy structlog proxy (safe before configuration);
 # main() rebinds it after setup_logging() so it picks up the final config.
 logger = structlog.get_logger()
+
+# Minimum seconds between two timeline request starts while a run contains a
+# history scan (20/min, the level the live app has run at without any 429).
+SCAN_TIMELINE_INTERVAL = 3.0
 
 
 def detect_system_language():
@@ -872,13 +877,67 @@ h1 {{ margin-bottom: 0.5em; }}
         name_hints: dict,
         scan_sem: asyncio.Semaphore,
         pbar,
-    ) -> None:
+        rate_limited: Optional[asyncio.Event] = None,
+    ) -> bool:
+        """Phase 2 for one room, with the run's 429 circuit breaker.
+
+        Runs ``_sync_room_body``. When any call in it raises
+        ``RateLimitedError``, ``rate_limited`` is set (``sync_rate_limited``
+        is logged once per run) and the error is re-raised.
+
+        Args:
+            rate_limited: Per-run flag shared by all rooms; a private one when
+                omitted. Once set, rooms that have not started their timeline
+                fetch are deferred.
+
+        Returns:
+            True when the room was deferred (nothing fetched or synced, no
+            cursor moved, not marked scanned), False when it was synced.
+        """
+        if rate_limited is None:
+            rate_limited = asyncio.Event()
+        try:
+            return await self._sync_room_body(
+                session,
+                gid,
+                group_tasks,
+                media_queue,
+                name_hints,
+                scan_sem,
+                pbar,
+                rate_limited,
+            )
+        except RateLimitedError as e:
+            if not rate_limited.is_set():
+                rate_limited.set()
+                logger.warning(
+                    "sync_rate_limited", group_id=gid, retry_after=e.retry_after
+                )
+            raise
+
+    async def _sync_room_body(
+        self,
+        session,
+        gid: int,
+        group_tasks: list,
+        media_queue: list,
+        name_hints: dict,
+        scan_sem: asyncio.Semaphore,
+        pbar,
+        rate_limited: asyncio.Event,
+    ) -> bool:
         """Phase 2 for one room: fetch its timeline once, then sync every author.
 
         A room whose history has not been scanned yet (``history_scanned``) is
-        read from the start (``since_id=None``, ``page_delay=1.0`` under
-        ``scan_sem``) and each member is synced with ``ignore_cursor=True``.
+        read from the start (``since_id=None``, ``page_delay=0``: pacing comes
+        from ``Client.timeline_min_interval``, set by ``_sync_rooms``) under
+        ``scan_sem``, and each member is synced with ``ignore_cursor=True``.
         Other rooms are read incrementally from the oldest member cursor.
+
+        If ``rate_limited`` is set before the timeline fetch starts (checked
+        again after acquiring ``scan_sem``), the room is deferred: it logs
+        ``room_sync_deferred`` and returns True without fetching or syncing.
+        Rooms past their fetch finish normally.
 
         Authors missing from the room's member list (earlier lineups, official
         rooms, member 0 for posts without ``member_id``) come from
@@ -893,8 +952,13 @@ h1 {{ margin-bottom: 0.5em; }}
             name_hints: Member id to member dict, for naming extra authors.
             scan_sem: Limits full-history scans to one room at a time.
             pbar: Progress bar; its total grows by the number of extra authors.
+            rate_limited: Per-run 429 flag, see ``_sync_room``.
+
+        Returns:
+            True when the room was deferred, False when it was synced.
 
         Raises:
+            RateLimitedError: The API answered 429; the room is not synced.
             AuthError: Session expired or refresh failed; never swallowed here.
             ApiError: ``extra_room_members`` failed for an already-scanned room.
                 Nothing is synced for the room, so cursors do not skip the
@@ -910,14 +974,28 @@ h1 {{ margin-bottom: 0.5em; }}
         min_since_id = None
         waited_s = 0.0
         started = queued_at
+
+        def deferred() -> bool:
+            logger.info(
+                "room_sync_deferred",
+                group_id=gid,
+                reason="rate_limited",
+                scan=scan,
+            )
+            return True
+
+        if rate_limited.is_set():
+            return deferred()
         if scan:
             logger.info("room_scan_started", group_id=gid)
             async with scan_sem:
+                if rate_limited.is_set():  # tripped while queued behind a scan
+                    return deferred()
                 # Time queued behind other rooms' scans is not scan time.
                 started = time.monotonic()
                 waited_s = started - queued_at
                 all_messages = await manager.client.get_messages(
-                    session, gid, since_id=None, page_delay=1.0
+                    session, gid, since_id=None, page_delay=0
                 )
         else:
             # Find minimum last_id across all members in this group
@@ -990,7 +1068,7 @@ h1 {{ margin-bottom: 0.5em; }}
                 members=len(api_members) + len(extra),
                 extras=len(extra),
             )
-            return
+            return False
         marked = await manager.room_archive_complete(group, all_messages)
         if marked:
             manager.mark_history_scanned(gid)
@@ -1005,6 +1083,7 @@ h1 {{ margin-bottom: 0.5em; }}
             waited_s=round(waited_s, 1),
             marked=bool(marked),
         )
+        return False
 
     async def _sync_rooms(self, session, tasks: list, media_queue: list) -> None:
         """Phase 2 for every room, at most 5 rooms at a time.
@@ -1013,6 +1092,15 @@ h1 {{ margin-bottom: 0.5em; }}
         left running while the session closes. Each failed room is logged
         (``room_sync_failed``: group id and error type only) and skipped; the
         other rooms' results are kept for Phase 3.
+
+        While any room still needs its history scanned, the client paces
+        timeline requests (``timeline_min_interval = SCAN_TIMELINE_INTERVAL``,
+        logged as ``sync_timeline_pacing``) and resets it to 0.0 however the
+        run ends. A ``RateLimitedError`` (HTTP 429) in any room trips a
+        per-run circuit breaker: rooms that have not started their timeline
+        fetch are deferred (``room_sync_deferred``), keep their cursors and
+        scan state, and are retried by the next run. ``sync_rate_limit_summary``
+        lists them at the end.
 
         Args:
             session: The shared aiohttp session.
@@ -1026,6 +1114,12 @@ h1 {{ margin-bottom: 0.5em; }}
         tasks_by_group: dict[int, list] = defaultdict(list)
         for t in tasks:
             tasks_by_group[t["group"]["id"]].append(t)
+
+        manager = self.manager
+        if manager is None:
+            raise RuntimeError("SyncManager is not initialised")
+        rate_limited = asyncio.Event()
+        deferred_gids: list[int] = []
 
         sem = asyncio.Semaphore(5)
         # Full-history scans are slow and rate-limited: one room at a time.
@@ -1041,7 +1135,7 @@ h1 {{ margin-bottom: 0.5em; }}
 
         async def sync_group(gid, group_tasks):
             async with sem:
-                await self._sync_room(
+                if await self._sync_room(
                     session,
                     gid,
                     group_tasks,
@@ -1049,8 +1143,21 @@ h1 {{ margin-bottom: 0.5em; }}
                     name_hints,
                     scan_sem,
                     pbar,
-                )
+                    rate_limited,
+                ):
+                    deferred_gids.append(gid)
 
+        scan_rooms = sum(
+            1 for gid in tasks_by_group if not manager.history_scanned(gid)
+        )
+        paced = scan_rooms > 0
+        if paced:
+            manager.client.timeline_min_interval = SCAN_TIMELINE_INTERVAL
+            logger.info(
+                "sync_timeline_pacing",
+                scan_rooms=scan_rooms,
+                interval=SCAN_TIMELINE_INTERVAL,
+            )
         try:
             results = await asyncio.gather(
                 *[sync_group(gid, gt) for gid, gt in tasks_by_group.items()],
@@ -1058,6 +1165,14 @@ h1 {{ margin-bottom: 0.5em; }}
             )
         finally:
             pbar.close()
+            if paced:
+                manager.client.timeline_min_interval = 0.0
+        if deferred_gids:
+            logger.warning(
+                "sync_rate_limit_summary",
+                deferred=len(deferred_gids),
+                group_ids=sorted(deferred_gids),
+            )
 
         errors = []
         failed_gids = []

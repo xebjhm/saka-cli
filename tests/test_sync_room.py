@@ -57,7 +57,7 @@ async def test_unscanned_room_rescans_all_authors_and_marks_scanned():
     pbar = await run_room(cli)
 
     manager.client.get_messages.assert_awaited_once_with(
-        "session", GID, since_id=None, page_delay=1.0
+        "session", GID, since_id=None, page_delay=0
     )
     manager.extra_room_members.assert_awaited_once_with(
         "session", GROUP, [MEMBER_79], MESSAGES, {79: MEMBER_79}
@@ -343,3 +343,184 @@ async def test_scan_elapsed_excludes_time_queued_for_scan_sem():
     finished = events_by_name(logs)["room_scan_finished"]
     assert finished["waited_s"] >= 0.1
     assert finished["elapsed_s"] < 0.1
+
+
+# ---------------------------------------------------------------------------
+# Timeline pacing during history scans + per-run 429 circuit breaker
+# ---------------------------------------------------------------------------
+
+THREE_ROOMS = [
+    {"group": {"id": gid, "name": f"room {gid}"}, "member": {"id": gid, "name": "m"}}
+    for gid in (1, 2, 3)
+]
+
+
+def make_rooms_cli(*, scanned_gids, fail_gid=None, error=None, delay=0.0):
+    """Rooms 1-3; ``scanned_gids`` are already scanned, the rest need a scan.
+
+    ``get_messages`` raises ``error`` for ``fail_gid``.
+    """
+    cli, manager = make_cli(scanned=True, extras=[], last_id=500)
+    manager.history_scanned.side_effect = lambda gid: gid in scanned_gids
+    manager.client.timeline_min_interval = 0.0
+    calls = []
+    seen_intervals = []
+
+    async def get_messages(session, gid, **kwargs):
+        calls.append((gid, kwargs))
+        seen_intervals.append(manager.client.timeline_min_interval)
+        await asyncio.sleep(delay)
+        if gid == fail_gid:
+            raise error
+        return MESSAGES
+
+    manager.client.get_messages = get_messages
+    return cli, manager, calls, seen_intervals
+
+
+async def test_pacing_set_for_scan_run_and_reset_afterwards():
+    cli, manager, calls, seen = make_rooms_cli(scanned_gids={2, 3})
+
+    with capture_logs() as logs:
+        await cli._sync_rooms("session", THREE_ROOMS, [])
+
+    assert seen == [3.0, 3.0, 3.0]  # set before any room fetched
+    assert manager.client.timeline_min_interval == 0.0
+    pacing = events_by_name(logs)["sync_timeline_pacing"]
+    assert pacing["scan_rooms"] == 1
+    assert pacing["interval"] == 3.0
+    scan_call = next(kw for gid, kw in calls if gid == 1)
+    assert scan_call == {"since_id": None, "page_delay": 0}
+
+
+async def test_pacing_reset_when_the_sync_raises():
+    cli, manager, _, _ = make_rooms_cli(
+        scanned_gids=set(), fail_gid=1, error=SessionExpiredError("expired")
+    )
+
+    with pytest.raises(SessionExpiredError):
+        await cli._sync_rooms("session", THREE_ROOMS, [])
+
+    assert manager.client.timeline_min_interval == 0.0
+
+
+async def test_pacing_never_touched_for_incremental_only_run():
+    cli, manager, _, seen = make_rooms_cli(scanned_gids={1, 2, 3})
+    manager.client.timeline_min_interval = 0.0
+
+    with capture_logs() as logs:
+        await cli._sync_rooms("session", THREE_ROOMS, [])
+
+    assert seen == [0.0, 0.0, 0.0]
+    assert "sync_timeline_pacing" not in events_by_name(logs)
+
+
+async def test_rate_limit_in_scan_room_defers_rooms_that_have_not_fetched():
+    cli, manager, calls, _ = make_rooms_cli(
+        scanned_gids=set(), fail_gid=1, error=RateLimitedError("slow", retry_after=30)
+    )
+
+    with capture_logs() as logs:
+        await cli._sync_rooms("session", THREE_ROOMS, [])
+
+    assert [gid for gid, _ in calls] == [1]  # rooms 2 and 3 never fetched
+    deferred = [e for e in logs if e["event"] == "room_sync_deferred"]
+    assert sorted(e["group_id"] for e in deferred) == [2, 3]
+    assert all(e["reason"] == "rate_limited" and e["scan"] is True for e in deferred)
+    limited = [e for e in logs if e["event"] == "sync_rate_limited"]
+    assert len(limited) == 1
+    assert limited[0]["group_id"] == 1
+    assert limited[0]["retry_after"] == 30
+    summary = events_by_name(logs)["sync_rate_limit_summary"]
+    assert summary["deferred"] == 2
+    assert sorted(summary["group_ids"]) == [2, 3]
+    # Deferred rooms: no sync, no cursor movement, no scan mark.
+    manager.sync_member.assert_not_awaited()
+    manager.mark_history_scanned.assert_not_called()
+    assert "room_sync_failed" in [e["event"] for e in logs]  # only room 1
+    failed = [e for e in logs if e["event"] == "room_sync_failed"]
+    assert [e["group_id"] for e in failed] == [1]
+    assert manager.client.timeline_min_interval == 0.0
+
+
+async def test_rate_limit_in_incremental_room_defers_rooms_not_yet_started():
+    # 7 rooms, 5 at a time: rooms 6 and 7 start only after room 1 failed.
+    rooms = [
+        {"group": {"id": g, "name": f"r{g}"}, "member": {"id": g, "name": "m"}}
+        for g in range(1, 8)
+    ]
+    cli, manager, calls, _ = make_rooms_cli(
+        scanned_gids=set(range(1, 8)),
+        fail_gid=1,
+        error=RateLimitedError("slow"),
+        delay=0.05,
+    )
+    plain = manager.client.get_messages
+
+    async def get_messages(session, gid, **kwargs):
+        if gid == 1:  # fail while rooms 2-5 are already mid-fetch
+            await asyncio.sleep(0.01)
+            raise RateLimitedError("slow")
+        return await plain(session, gid, **kwargs)
+
+    manager.client.get_messages = get_messages
+
+    with capture_logs() as logs:
+        await cli._sync_rooms("session", rooms, [])
+
+    # Rooms 2-5 were past their fetch start: they complete normally.
+    synced = sorted(c.args[2]["id"] for c in manager.sync_member.await_args_list)
+    assert synced == [2, 3, 4, 5]
+    assert sorted(gid for gid, _ in calls) == [2, 3, 4, 5]
+    deferred = [e for e in logs if e["event"] == "room_sync_deferred"]
+    assert sorted(e["group_id"] for e in deferred) == [6, 7]
+    assert all(e["scan"] is False for e in deferred)
+    summary = events_by_name(logs)["sync_rate_limit_summary"]
+    assert summary["deferred"] == 2
+    manager.mark_history_scanned.assert_not_called()
+
+
+async def test_scan_room_queued_behind_scan_sem_defers_after_acquiring():
+    cli, manager = make_cli(scanned=False, extras=[])
+    scan_sem = asyncio.Semaphore(1)
+    await scan_sem.acquire()
+    rate_limited = asyncio.Event()
+
+    async def trip_later():
+        await asyncio.sleep(0.05)
+        rate_limited.set()
+        scan_sem.release()
+
+    tripper = asyncio.create_task(trip_later())
+    with capture_logs() as logs:
+        deferred = await cli._sync_room(
+            "session",
+            GID,
+            [{"group": GROUP, "member": MEMBER_79}],
+            [],
+            {},
+            scan_sem,
+            MagicMock(total=1),
+            rate_limited,
+        )
+    await tripper
+
+    assert deferred is True
+    manager.client.get_messages.assert_not_awaited()
+    manager.sync_member.assert_not_awaited()
+    manager.mark_history_scanned.assert_not_called()
+    event = events_by_name(logs)["room_sync_deferred"]
+    assert event["group_id"] == GID
+    assert event["scan"] is True
+    assert "room_scan_finished" not in events_by_name(logs)
+
+
+async def test_no_summary_when_nothing_was_deferred():
+    cli, manager, _, _ = make_rooms_cli(scanned_gids={1, 2, 3})
+
+    with capture_logs() as logs:
+        await cli._sync_rooms("session", THREE_ROOMS, [])
+
+    names = events_by_name(logs)
+    assert "sync_rate_limit_summary" not in names
+    assert "room_sync_deferred" not in names
