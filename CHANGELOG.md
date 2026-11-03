@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Phase 2 (`SakaCLI._sync_room`) now syncs authors outside a room's current
+  `get_members` list and posts without a `member_id` (member 0, the room
+  author) via `SyncManager.extra_room_members`. Before, their messages were
+  never saved. The first run after updating re-reads each room's full history
+  once (`get_messages(since_id=None, page_delay=1.0)`, one room at a time,
+  `sync_member(ignore_cursor=True)`) and marks it with `mark_history_scanned`
+  once `room_archive_complete`; later runs use the normal cursor.
+
 ## [0.1.1] - 2026-01-11
 
 ### Added

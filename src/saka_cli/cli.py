@@ -18,6 +18,8 @@ from pysaka import (
     get_auth_dir,
     get_user_data_dir,
     SessionExpiredError,
+    AuthError,
+    ApiError,
 )
 
 from saka_cli.logging_setup import setup_logging
@@ -860,6 +862,101 @@ h1 {{ margin-bottom: 0.5em; }}
 
         return base_dir
 
+    async def _sync_room(
+        self,
+        session,
+        gid: int,
+        group_tasks: list,
+        media_queue: list,
+        name_hints: dict,
+        scan_sem: asyncio.Semaphore,
+        pbar,
+    ) -> None:
+        """Phase 2 for one room: fetch its timeline once, then sync every author.
+
+        A room whose history has not been scanned yet (``history_scanned``) is
+        read from the start (``since_id=None``, ``page_delay=1.0`` under
+        ``scan_sem``) and each member is synced with ``ignore_cursor=True``.
+        Other rooms are read incrementally from the oldest member cursor.
+
+        Authors missing from the room's member list (earlier lineups, official
+        rooms, member 0 for posts without ``member_id``) come from
+        ``extra_room_members`` and are synced after the listed members. The
+        room is marked scanned only once ``room_archive_complete`` is true.
+
+        Args:
+            session: The shared aiohttp session.
+            gid: Room (group) id.
+            group_tasks: ``{"group", "member"}`` tasks for this room.
+            media_queue: Collects media downloads for Phase 3.
+            name_hints: Member id to member dict, for naming extra authors.
+            scan_sem: Limits full-history scans to one room at a time.
+            pbar: Progress bar; its total grows by the number of extra authors.
+
+        Raises:
+            AuthError: Session expired or refresh failed; never swallowed here.
+        """
+        manager = self.manager
+        if manager is None:
+            raise RuntimeError("SyncManager is not initialised")
+
+        scan = not manager.history_scanned(gid)
+        if scan:
+            async with scan_sem:
+                all_messages = await manager.client.get_messages(
+                    session, gid, since_id=None, page_delay=1.0
+                )
+        else:
+            # Find minimum last_id across all members in this group
+            since_ids = [
+                manager.get_last_id(gid, t["member"]["id"]) for t in group_tasks
+            ]
+            min_since_id = None if any(s is None for s in since_ids) else min(since_ids)
+            all_messages = await manager.client.get_messages(
+                session, gid, since_id=min_since_id
+            )
+
+        group = group_tasks[0]["group"]
+        api_members = [t["member"] for t in group_tasks]
+        try:
+            extra = await manager.extra_room_members(
+                session, group, api_members, all_messages, name_hints
+            )
+        except AuthError:
+            raise
+        except ApiError as e:
+            # Keep syncing the listed members; the scan flag stays unset because
+            # the room's archive cannot be complete without its other authors.
+            logger.warning(
+                "extra_room_members_failed",
+                group_id=gid,
+                error_type=type(e).__name__,
+            )
+            extra = []
+        if extra:
+            pbar.total += len(extra)
+            pbar.refresh()
+
+        # Process each member using pre-fetched data
+        for member in api_members + extra:
+
+            async def on_progress(date_str, count, name=member["name"]):
+                pbar.set_postfix_str(f"Latest: {name} ({count})")
+
+            await manager.sync_member(
+                session,
+                group,
+                member,
+                media_queue,
+                progress_callback=on_progress,
+                prefetched_messages=all_messages,
+                ignore_cursor=scan,
+            )
+            pbar.update(1)
+
+        if scan and await manager.room_archive_complete(group, all_messages):
+            manager.mark_history_scanned(gid)
+
     async def run(
         self,
         group_ids=None,
@@ -1047,42 +1144,22 @@ h1 {{ margin-bottom: 0.5em; }}
                     tasks_by_group[t["group"]["id"]].append(t)
 
                 sem = asyncio.Semaphore(5)
+                # Full-history scans are slow and rate-limited: one room at a time.
+                scan_sem = asyncio.Semaphore(1)
+                # Names for authors that are not in their room's current lineup.
+                name_hints = {t["member"]["id"]: t["member"] for t in tasks}
 
                 async def sync_group(gid, group_tasks, pbar):
                     async with sem:
-                        # Find minimum last_id across all members in this group
-                        since_ids = [
-                            self.manager.get_last_id(gid, t["member"]["id"])
-                            for t in group_tasks
-                        ]
-                        min_since_id = (
-                            None
-                            if any(s is None for s in since_ids)
-                            else min(since_ids)
+                        await self._sync_room(
+                            session,
+                            gid,
+                            group_tasks,
+                            media_queue,
+                            name_hints,
+                            scan_sem,
+                            pbar,
                         )
-
-                        # ONE API call for the entire group
-                        all_messages = await self.manager.client.get_messages(
-                            session, gid, since_id=min_since_id
-                        )
-
-                        # Process each member using pre-fetched data
-                        for t in group_tasks:
-
-                            async def on_progress(
-                                date_str, count, name=t["member"]["name"]
-                            ):
-                                pbar.set_postfix_str(f"Latest: {name} ({count})")
-
-                            await self.manager.sync_member(
-                                session,
-                                t["group"],
-                                t["member"],
-                                media_queue,
-                                progress_callback=on_progress,
-                                prefetched_messages=all_messages,
-                            )
-                            pbar.update(1)
 
                 pbar = tqdm(
                     total=len(tasks),
