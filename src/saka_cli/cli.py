@@ -991,6 +991,76 @@ h1 {{ margin-bottom: 0.5em; }}
             marked=bool(marked),
         )
 
+    async def _sync_rooms(self, session, tasks: list, media_queue: list) -> None:
+        """Phase 2 for every room, at most 5 rooms at a time.
+
+        Every room runs to the end even when another fails, so no writer is
+        left running while the session closes. Each failed room is logged
+        (``room_sync_failed``: group id and error type only) and skipped; the
+        other rooms' results are kept for Phase 3.
+
+        Args:
+            session: The shared aiohttp session.
+            tasks: ``{"group", "member"}`` tasks, one per listed member.
+            media_queue: Collects media downloads for Phase 3.
+
+        Raises:
+            AuthError: A room hit an auth error (raised after all rooms end).
+            Exception: The first room error, when every room failed.
+        """
+        tasks_by_group: dict[int, list] = defaultdict(list)
+        for t in tasks:
+            tasks_by_group[t["group"]["id"]].append(t)
+
+        sem = asyncio.Semaphore(5)
+        # Full-history scans are slow and rate-limited: one room at a time.
+        scan_sem = asyncio.Semaphore(1)
+        # Names for authors that are not in their room's current lineup.
+        name_hints = {t["member"]["id"]: t["member"] for t in tasks}
+
+        pbar = tqdm(
+            total=len(tasks),
+            desc=get_string("run_tqdm_fetching"),
+            unit="member",
+        )
+
+        async def sync_group(gid, group_tasks):
+            async with sem:
+                await self._sync_room(
+                    session,
+                    gid,
+                    group_tasks,
+                    media_queue,
+                    name_hints,
+                    scan_sem,
+                    pbar,
+                )
+
+        try:
+            results = await asyncio.gather(
+                *[sync_group(gid, gt) for gid, gt in tasks_by_group.items()],
+                return_exceptions=True,
+            )
+        finally:
+            pbar.close()
+
+        errors = []
+        for gid, result in zip(tasks_by_group, results):
+            if isinstance(result, BaseException):
+                if not isinstance(result, Exception):
+                    raise result  # e.g. CancelledError: never swallow
+                logger.warning(
+                    "room_sync_failed",
+                    group_id=gid,
+                    error_type=type(result).__name__,
+                )
+                errors.append(result)
+        for error in errors:
+            if isinstance(error, AuthError):
+                raise error
+        if errors and len(errors) == len(results):
+            raise errors[0]
+
     async def run(
         self,
         group_ids=None,
@@ -1173,37 +1243,7 @@ h1 {{ margin-bottom: 0.5em; }}
                 logger.info(get_string("run_phase_2"))
                 media_queue = []
 
-                tasks_by_group: dict[int, list] = defaultdict(list)
-                for t in tasks:
-                    tasks_by_group[t["group"]["id"]].append(t)
-
-                sem = asyncio.Semaphore(5)
-                # Full-history scans are slow and rate-limited: one room at a time.
-                scan_sem = asyncio.Semaphore(1)
-                # Names for authors that are not in their room's current lineup.
-                name_hints = {t["member"]["id"]: t["member"] for t in tasks}
-
-                async def sync_group(gid, group_tasks, pbar):
-                    async with sem:
-                        await self._sync_room(
-                            session,
-                            gid,
-                            group_tasks,
-                            media_queue,
-                            name_hints,
-                            scan_sem,
-                            pbar,
-                        )
-
-                pbar = tqdm(
-                    total=len(tasks),
-                    desc=get_string("run_tqdm_fetching"),
-                    unit="member",
-                )
-                await asyncio.gather(
-                    *[sync_group(gid, gt, pbar) for gid, gt in tasks_by_group.items()]
-                )
-                pbar.close()
+                await self._sync_rooms(session, tasks, media_queue)
 
                 # Phase 3: Media
                 if media_queue:

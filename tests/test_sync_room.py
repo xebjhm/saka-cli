@@ -219,3 +219,70 @@ async def test_extras_failure_logs_scanned_and_action():
     failed = events_by_name(logs)["extra_room_members_failed"]
     assert failed["scanned"] is True
     assert failed["action"] == "fail_room"
+
+
+# ---------------------------------------------------------------------------
+# _sync_rooms: fan-out over rooms, failure isolation
+# ---------------------------------------------------------------------------
+
+GROUP_2 = {"id": 44, "name": "second room"}
+MEMBER_5 = {"id": 5, "name": "member 5"}
+TASKS_TWO_ROOMS = [
+    {"group": GROUP, "member": MEMBER_79},
+    {"group": GROUP_2, "member": MEMBER_5},
+]
+
+
+def make_two_room_cli(*, fail_gid, error):
+    """Both rooms are already scanned; get_messages fails for ``fail_gid``."""
+    cli, manager = make_cli(scanned=True, extras=[], last_id=500)
+    finished = []
+
+    async def get_messages(session, gid, **kwargs):
+        await asyncio.sleep(0.01 if gid == fail_gid else 0.03)
+        if gid == fail_gid:
+            raise error
+        finished.append(gid)
+        return MESSAGES
+
+    manager.client.get_messages = get_messages
+    return cli, manager, finished
+
+
+async def test_failing_room_does_not_abort_other_rooms():
+    cli, manager, finished = make_two_room_cli(fail_gid=43, error=ApiError("x", 500))
+    media_queue = []
+
+    with capture_logs() as logs:
+        await cli._sync_rooms("session", TASKS_TWO_ROOMS, media_queue)
+
+    assert finished == [44]  # the slower, healthy room was awaited to the end
+    assert [c.args[2]["id"] for c in manager.sync_member.await_args_list] == [5]
+    failed = events_by_name(logs)["room_sync_failed"]
+    assert failed["group_id"] == 43
+    assert failed["error_type"] == "ApiError"
+    assert "x" not in {str(v) for v in failed.values()}
+
+
+async def test_auth_error_is_raised_after_all_rooms_finish():
+    cli, manager, finished = make_two_room_cli(
+        fail_gid=43, error=SessionExpiredError("expired")
+    )
+
+    with capture_logs() as logs, pytest.raises(SessionExpiredError):
+        await cli._sync_rooms("session", TASKS_TWO_ROOMS, [])
+
+    assert finished == [44]
+    assert [c.args[2]["id"] for c in manager.sync_member.await_args_list] == [5]
+    assert events_by_name(logs)["room_sync_failed"]["group_id"] == 43
+
+
+async def test_all_rooms_failing_raises_first_error():
+    cli, manager = make_cli(scanned=True, extras=[], last_id=500)
+    manager.client.get_messages = AsyncMock(side_effect=ApiError("down", 500))
+
+    with capture_logs() as logs, pytest.raises(ApiError):
+        await cli._sync_rooms("session", TASKS_TWO_ROOMS, [])
+
+    assert len([e for e in logs if e["event"] == "room_sync_failed"]) == 2
+    manager.sync_member.assert_not_awaited()
